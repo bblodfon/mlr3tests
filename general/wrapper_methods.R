@@ -206,10 +206,11 @@ at_ga = AutoFSelector$new(
   resampling = rsmp_cv,
   measure = measure,
   terminator = trm('evals', n_evals = 20), # < 100000, so stops at 20
-  fselector = fs('genetic_search', zeroToOneRatio = 5)
+  fselector = fs('genetic_search', zeroToOneRatio = 5, popSize=200)
 )
 at_ga$train(task)
 at_ga$fselect_result
+at_ga$fselect_instance$result_feature_set
 as.data.table(at_ga$archive)
 
 autoplot(at_ga$fselect_instance, type = 'performance')
