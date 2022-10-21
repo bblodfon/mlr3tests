@@ -14,13 +14,13 @@ get_treeplot = function(cp, data_list) {
   }
 }
 
-# Define UI for application that draws a histogram
+# Define UI
 ui = fluidPage(
 
     # Application title
     titlePanel('Effect of complexity value on Tree size'),
 
-    # Sidebar with a slider input for number of bins
+    # Sidebar
     sidebarLayout(
         sidebarPanel(
           sliderTextInput(
@@ -31,7 +31,7 @@ ui = fluidPage(
           )
         ),
 
-        # Show a plot of the generated distribution
+        # Show a plot of the trained model tree
         mainPanel(
            plotOutput('treePlot')
         )
@@ -43,7 +43,7 @@ ui = fluidPage(
     )
 )
 
-# Define server logic required to draw a histogram
+# Define server logic
 server = function(input, output) {
     output$spamDataTable = DT::renderDataTable(expr =
       DT::datatable(
