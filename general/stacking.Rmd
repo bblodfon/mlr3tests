@@ -1,0 +1,110 @@
+---
+title: "test"
+author: "John"
+date: "2022-11-04"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(mlr3verse)
+```
+
+# Stacking
+
+```{r}
+#?mlr_pipeops_learner_cv
+task = tsk("iris")
+learner = lrn("classif.rpart")
+
+lrncv_po = po("learner_cv", learner$clone())
+lrncv_po$param_set
+lrncv_po$learner$predict_type = "response"
+lrncv_po$train(list(task))[[1]]$data()
+lrncv_po$learner$predict_type = "prob"
+lrncv_po$train(list(task))[[1]]$data() # keeps the target
+
+nop = mlr_pipeops$get("nop")
+
+graph = gunion(list(
+  lrncv_po,
+  nop
+)) %>>% po("featureunion")
+
+graph$plot(html = TRUE)
+```
+
+```{r}
+graph$train(task)
+#graph$pipeops$classif.rpart$learner$predict_type = "prob"
+graph$train(task)[[1]]$data() # adds CV predictions as features
+```
+
+## stacking simple
+
+```{r}
+lrn = lrn("classif.rpart")
+lrn_0 = po("learner_cv", lrn$clone())
+lrn_0$id = "rpart_cv"
+lrn_0
+
+stack = gunion(list(lrn_0, po("nop"))) %>>%
+  po("featureunion", 2) %>>%
+  po("learner", lrn$clone())
+stack$plot(html = TRUE)
+```
+
+```{r}
+stacklrn = as_learner(stack)
+stacklrn$train(task, 1:120)
+stacklrn$predict(task, 121:150)$score()
+```
+
+## multiple stacking (more powerful?)
+```{r}
+rprt = lrn("classif.rpart", predict_type = "prob")
+glmn = lrn("classif.glmnet", predict_type = "prob")
+
+# Create Learner CV Operators
+#?mlr_pipeops_learner_cv
+lrn_0 = po("learner_cv", rprt, id = "rpart_cv_1")
+lrn_0$param_set$values$maxdepth = 5L
+lrn_1 = po("pca", id = "pca1") %>>% po("learner_cv", rprt, id = "rpart_cv_2")
+lrn_1$param_set$values$rpart_cv_2.maxdepth = 1L
+lrn_2 = po("pca", id = "pca2") %>>% po("learner_cv", glmn)
+
+# Union them with a PipeOpNULL to keep original features
+level_0 = gunion(list(lrn_0, lrn_1, lrn_2, po("nop", id = "NOP1")))
+level_0$plot(html = TRUE)
+```
+
+```{r}
+# Cbind the output 3 times, train 2 learners but also keep level 0 predictions
+level_1 = level_0 %>>%
+  po("featureunion", 4) %>>%
+  po("copy", 3) %>>% # COPY 3 TIMES THE NEW DATASET
+  gunion(list(
+    po("learner_cv", rprt, id = "rpart_cv_l1"),
+    po("learner_cv", glmn, id = "glmnt_cv_l1"),
+    po("nop", id = "NOP_l1")
+  ))
+level_1$plot(html = TRUE)
+```
+
+```{r}
+# Column-bind predictions, train a final learner
+level_2 = level_1 %>>%
+  po("featureunion", 3, id = "u2") %>>%
+  po("learner", rprt, id = "rpart_l2")
+
+# Plot the resulting graph
+level_2$plot(html = TRUE)
+```
+
+```{r}
+multistacklrn = as_learner(level_2)
+multistacklrn$
+  train(task, 1:120)$
+  predict(task, 121:150)$
+  score()
+```
