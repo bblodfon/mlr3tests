@@ -59,7 +59,7 @@ stabilityJaccard(features = feats, p = 10, N = 1000, correction.for.chance = 'es
 listStabilityMeasures() %>% filter(Name == 'stabilityHamming')
 ?stabilityHamming
 stabilityHamming(features = feats, p = 10, correction.for.chance = 'estimate', N = 1000)
-stabilityHamming(features = feats, p = 10) # default correction.for.chance = `none`
+stabilityHamming(features = feats, p = 10) # default correction.for.chance = `none`, high values in general?
 
 ## Nogueira (2018) ----
 listStabilityMeasures() %>% filter(Name == 'stabilityNogueira')
