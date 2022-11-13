@@ -3,6 +3,7 @@ library(mlr3verse)
 library(shiny)
 library(shinyWidgets)
 library(DT)
+library(ggplot2)
 
 # make dataset
 set.seed(42)
@@ -34,7 +35,7 @@ ui = fluidPage(
             grid = TRUE,
             selected = 1000
           ),
-          textOutput(outputId = 'nSVs')
+          span(textOutput(outputId = 'nSVs'), style='font-size:30px')
         ),
 
         # SVM plot
@@ -76,7 +77,7 @@ server = function(input, output) {
           aes(x = X1, y = X2),
           color = '#ff80ff', size = 7, alpha = 0.3) +
         # add decision boundary
-        geom_abline(slope = slope, intercept = intercept, color = 'purple', size = 1) +
+        geom_abline(slope = slope, intercept = intercept, color = 'purple', linewidth = 1) +
         # add margin boundaries
         geom_abline(slope = slope, intercept = intercept - M, linetype = 'dashed') +
         geom_abline(slope = slope, intercept = intercept + M, linetype = 'dashed') +
