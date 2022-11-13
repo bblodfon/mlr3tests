@@ -1,4 +1,5 @@
 library(mlr3verse)
+library(ggparty) # needs to be installed for the app to work
 
 task = tsk('spam')
 task
