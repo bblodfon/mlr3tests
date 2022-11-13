@@ -132,6 +132,7 @@ preds2 = predict(fit2, newdata = task$data(cols = task$feature_names)[test_indxs
 preds2
 
 # mlr3proba example ----
+#' https://github.com/mlr-org/mlr3extralearners/blob/main/R/learner_CoxBoost_surv_coxboost.R#L74
 learner = lrn('surv.coxboost', standardize = TRUE, return.score = FALSE,
   stepno = 200, penalty = 100, criterion = 'pscore')
 learner
