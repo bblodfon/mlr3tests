@@ -56,63 +56,63 @@ surv_xgboost$train(task_vet)
 # Lung example ----
 task_lung = tsk('lung')
 task_lung = mlr3pipelines::po('encode')$train(list(task_lung))[[1]]
+task_lung
 
 split = partition(task_lung, ratio = 0.8)
 task_lung$set_row_roles(split$test, "test")
-learner = lrn("surv.xgboost", eta = 0.01,
-              nrounds = 1000, verbose = 1,
-              early_stopping_rounds = 100,
-              early_stopping_set = "test"
-)
-task_lung
-learner$train(task_lung, row_ids = 1:200) # row_ids ?
 
-learner2 = lrn("surv.xgboost", eta = 0.01, objective = 'survival:aft',
-    nrounds = 1000, verbose = 1,
-    early_stopping_rounds = 100,
-    early_stopping_set = "test"
-)
+## make another watchlist based on part of the (train/use) data!
+task = task_lung$clone(deep = TRUE)
+set.seed(42)
+row_ids = sample(1:task$nrow, 25)
+row_ids
 
-learner2$train(task_lung)
-
-  # from code directly ----
-task_vet # 109, some in test roles!
-
-task = task_vet$clone(deep = TRUE)
-data = task$data(cols = task$feature_names)
-dim(data) # 109
-target = task$data(cols = task$target_names)
-dim(target) # 109
+data = task$data(rows = row_ids, cols = task$feature_names)
+target = task$data(rows = row_ids, cols = task$target_names)
+data
+target
 
 targets = task$target_names
-targets # time, status
-label = target[[targets[1]]]
-label # times
-status = target[[targets[2]]]
+targets
+label = target[[targets[1]]] # time
+status = target[[targets[2]]] # status
+label
 status
 
-## cox objective ----
+# objective:cox ----
 label[status != 1] = -1L * label[status != 1]
 data = xgboost::xgb.DMatrix(
-  data = as_numeric_matrix(data),
+  data = as.matrix(data),
   label = label)
-data # ok for the 'use' data
+data
 
-test_data = task$data(rows = task$row_roles$test, cols = task$feature_names)
-test_data
-dim(test_data) # 28 rows
+#' 3 ways to set a watchlist validation set
+#' 1) Set `watchlist` directly to a test set (very manual)
+#' 2) Set `early_stopping_set = 'test'` (row_cols$test will be used, easiest)
+#' 3) Worse `early_stopping_set = 'train'` (check train data)
+learner = lrn("surv.xgboost", eta = 0.01, nrounds = 1000, verbose = 1,
+  early_stopping_rounds = 100,
+  #early_stopping_set = "test", # set this to check train and test set => no need for watchlist then
+  #early_stopping_set = "train", # set this one for old behavior (check only train set)
+  watchlist = list(sub_train = data)) # `sub_train` or whichever you want to set here!
+learner$train(task_lung) # row_ids ?
 
-test_target = task$data(rows = task$row_roles$test, cols = task$target_names)
-test_target
+# objective:aft ----
+data = task$data(rows = row_ids, cols = task$feature_names)
+target = task$data(rows = row_ids, cols = task$target_names)
+targets = task$target_names
+label = target[[targets[1]]] # time
+status = target[[targets[2]]] # status
 
-test_label = test_target[[task$target_names[1]]] # time
-test_status = test_target[[task$target_names[2]]]
-test_label
-test_status
+y_lower_bound = y_upper_bound = label
+y_upper_bound[status == 0] = Inf
 
-test_label[test_status != 1] = -1L * test_label[test_status != 1]
-test_data = xgboost::xgb.DMatrix(
-  data = as_numeric_matrix(test_data),
-  label = test_label)
-test_data
+data2 = xgboost::xgb.DMatrix(as.matrix(data))
+xgboost::setinfo(data2, "label_lower_bound", y_lower_bound)
+xgboost::setinfo(data2, "label_upper_bound", y_upper_bound)
 
+learner2 = lrn("surv.xgboost", eta = 0.01, objective = 'survival:aft',
+  nrounds = 1000, verbose = 1, early_stopping_rounds = 100,
+  early_stopping_set = "test", watchlist = list(sub_train = data2))
+
+learner2$train(task_lung)

@@ -29,11 +29,11 @@ length(fit$unique.death.times)
 dim(fit$survival) # observations x times
 #fit$survival[1:5,1:5]
 
-# SOS: native ranger() returns distr only!!!!
+# SOS: native ranger() returns `distr` only!!!!
 pred1 = predict(fit, data = task$data(rows = 1:5))
 
 head(pred1$survival)
-#head(pred1$chf)
+head(pred1$chf)
 
 # mlr3proba returns crank as well!!! - computed via:
 ?survivalmodels::surv_to_risk
@@ -52,7 +52,7 @@ head(res$crank)
 
 # calculate crank yourself!
 crank2 = rowSums(pred1$chf) # sum CHF over all available times
-stopifnot(crank2 == res$crank)
+stopifnot(crank2 == res$crank) # SAME IN mlr3proba and ranger
 
 # different than taking the CHF on the last time in terms of ranking
 # See the CHF curves that cross to make an assessment
