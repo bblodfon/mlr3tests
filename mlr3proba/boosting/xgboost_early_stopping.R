@@ -86,6 +86,7 @@ data = xgboost::xgb.DMatrix(
   label = label)
 data
 
+# TO REMEMBER ----
 #' 3 ways to set a watchlist validation set
 #' 1) Set `watchlist` directly to a test set (very manual)
 #' 2) Set `early_stopping_set = 'test'` (row_cols$test will be used, easiest)
