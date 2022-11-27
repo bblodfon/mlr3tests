@@ -1,6 +1,6 @@
 library(mlr3verse)
 library(mlr3pipelines)
-library(dplyr)
+library(tidyverse)
 
 # Find PipeOps ----
 as.data.table(mlr_pipeops) %>% as_tibble()
@@ -328,3 +328,20 @@ multistacklrn$
   train(task, 1:120)$
   predict(task, 121:150)$
   score()
+
+## Fast 2-level Stacking :)
+?mlr_graphs_stacking
+base_learners = list(
+  lrn("classif.rpart", predict_type = "prob"),
+  lrn("classif.kknn", predict_type = "prob")
+)
+super_learner = lrn("classif.log_reg")
+
+graph_stack = pipeline_stacking(base_learners, super_learner)
+graph_stack$plot()
+graph_learner = as_learner(graph_stack)
+graph_learner
+
+task = tsk("german_credit")
+graph_learner$train(task)
+graph_learner$predict(task)$score()
