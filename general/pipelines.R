@@ -272,7 +272,7 @@ graph$train(task)
 graph$train(task)[[1]]$data() # adds CV predictions as features
 
 # Stacking ----
-## stacking simple
+## stacking simple ----
 lrn = lrn("classif.rpart")
 lrn_0 = po("learner_cv", lrn$clone())
 lrn_0$id = "rpart_cv"
@@ -287,7 +287,7 @@ stacklrn = as_learner(stack)
 stacklrn$train(task, 1:120)
 stacklrn$predict(task, 121:150)$score()
 
-## multiple stacking (more powerful?)
+## multiple stacking ----
 rprt = lrn("classif.rpart", predict_type = "prob")
 glmn = lrn("classif.glmnet", predict_type = "prob")
 
@@ -329,7 +329,7 @@ multistacklrn$
   predict(task, 121:150)$
   score()
 
-## Fast 2-level Stacking :)
+## Fast 2-level Stacking :) ----
 ?mlr_graphs_stacking
 base_learners = list(
   lrn("classif.rpart", predict_type = "prob"),
