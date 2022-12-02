@@ -93,7 +93,7 @@ data
 #' 3) Worse `early_stopping_set = 'train'` (check train data)
 learner = lrn("surv.xgboost", eta = 0.01, nrounds = 1000, verbose = 1,
   early_stopping_rounds = 100,
-  #early_stopping_set = "test", # set this to check train and test set => no need for watchlist then
+  early_stopping_set = "test", # set this to check train and test set => no need for watchlist then
   #early_stopping_set = "train", # set this one for old behavior (check only train set)
   watchlist = list(sub_train = data)) # `sub_train` or whichever you want to set here!
 learner$train(task_lung) # row_ids ?
@@ -114,6 +114,8 @@ xgboost::setinfo(data2, "label_upper_bound", y_upper_bound)
 
 learner2 = lrn("surv.xgboost", eta = 0.01, objective = 'survival:aft',
   nrounds = 1000, verbose = 1, early_stopping_rounds = 100,
-  early_stopping_set = "test", watchlist = list(sub_train = data2))
+  early_stopping_set = "none", watchlist = list(sub_train = data2))
 
 learner2$train(task_lung)
+# See Issue ----
+# https://github.com/mlr-org/mlr3learners/issues/257
