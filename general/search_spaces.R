@@ -168,3 +168,15 @@ learner = lrn('surv.ranger',
 
 generate_design_random(learner$param_set$search_space(), 5)
 
+library(paradox)
+
+my_ps = paradox::ps(
+  minsplit = p_int(1, 64, logscale = TRUE), # logscale = TRUE
+  cp = p_dbl(1e-04, 1)
+)
+
+my_ps
+my_ps$set_id = "john"
+my_ps
+my_psc = ParamSetCollection$new(list(my_ps))
+my_psc
