@@ -46,7 +46,8 @@ length(task_vet$row_roles$test)
 surv_xgboost = lrn('surv.xgboost', nrounds = 1000, verbose = 1,
               early_stopping_rounds = 10)
 surv_xgboost$help()
-surv_xgboost$train(task_vet)
+surv_xgboost$param_set$values$early_stopping_set # "none"
+surv_xgboost$train(task_vet) # doesn't work with newest version
 
 surv_xgboost = lrn('surv.xgboost', nrounds = 1000, verbose = 1,
                    early_stopping_rounds = 100,  eta = 0.01,
@@ -89,7 +90,7 @@ data
 # TO REMEMBER ----
 #' 3 ways to set a watchlist validation set
 #' 1) Set `watchlist` directly to a test set (very manual)
-#' 2) Set `early_stopping_set = 'test'` (row_cols$test will be used, easiest)
+#' 2) Set `early_stopping_set = 'test'` (`row_rols$test` will be used, easiest)
 #' 3) Worse `early_stopping_set = 'train'` (check train data)
 learner = lrn("surv.xgboost", eta = 0.01, nrounds = 1000, verbose = 1,
   early_stopping_rounds = 100,
