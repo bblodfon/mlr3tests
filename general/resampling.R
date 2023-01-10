@@ -160,6 +160,7 @@ dt[, .(class_ratio = sum(credit_risk == "bad") / sum(credit_risk == "good")), by
 dt[, .(class_ratio = sum(credit_risk == "bad") / sum(credit_risk == "good"))]
 
 # NOW: STRATIFY
+# SOS => stratum has to be a feature or target variable that is DISCRETE
 task_gc$col_roles$stratum = "credit_risk"
 task_gc
 cv4 = rsmp('cv', folds = 8)
@@ -178,3 +179,153 @@ autoplot(rr, measure = msr("classif.acc"), type = 'histogram')
 autoplot(rr, type = "roc")
 autoplot(rr, type = "prc")
 autoplot(rr, type = "prediction") # needs task with only two features :)
+
+# Stratify on survival status ----
+task = tsk('lung')
+task
+
+## Original task censoring ----
+#' censoring distr = proportion of 0's
+status = task$truth()[,2]
+status %>%
+  as_tibble() %>%
+  summarise(censored = sum(value == 0)/n())
+# 27.6%
+
+#' @description Get censoring distribution per data split (e.g. fold)
+#' @param rsmp [mlr3::Resampling]
+#' @param status original task's `status` indicator variable
+cens_distr = function(rsmp, status) {
+  if (rsmp$id == 'cv') {
+    as_tibble(rsmp$instance) %>%
+      add_column(status = status[rsmp$instance$row_id]) %>%
+      group_by(fold) %>%
+      summarise(censored = sum(status == 0)/n())
+  } else if (rsmp$id == 'repeated_cv') {
+    rep_list = as_tibble(rsmp$instance) %>%
+      group_by(rep) %>%
+      group_split()
+
+    lapply(rep_list, function(tbl) {
+      tbl %>%
+        add_column(status = status[tbl$row_id]) %>%
+        group_by(fold) %>%
+        summarise(censored = sum(status == 0)/n())
+    })
+  } else if (rsmp$id == 'holdout') {
+    inst = dplyr::bind_rows(
+      tibble(row_id = rsmp$instance$train, fold = 'train'),
+      tibble(row_id = rsmp$instance$test, fold = 'test')
+    )
+    inst %>%
+      add_column(status = status[inst$row_id]) %>%
+      group_by(fold) %>%
+      summarise(censored = sum(status == 0)/n())
+  }
+}
+
+## Holdout censoring per fold (train/test) ----
+# holdout resampling
+rsmp_holdout = rsmp('holdout', ratio = 0.8)
+rsmp_holdout$instantiate(task)
+rsmp_holdout
+
+cens_distr(rsmp_holdout, status)
+
+## CV censoring per fold ----
+# CV resampling
+rsmp_cv = rsmp('cv', folds = 10)
+rsmp_cv$instantiate(task)
+rsmp_cv
+
+cens_distr(rsmp_cv, status)
+
+## Repeated-CV censoring per fold ----
+# Repeated-CV resampling
+rsmp_rcv = rsmp('repeated_cv', folds = 7, repeats = 3)
+rsmp_rcv$instantiate(task)
+rsmp_rcv
+cens_distr(rsmp_rcv, status)
+# view all folds and repeats in one:
+dplyr::bind_rows(cens_distr(rsmp_rcv, status), .id = 'rep') %>% as.data.frame()
+
+## Status Stratification and checks ----
+task2 = task$clone()
+task2$col_roles$stratum = 'status'
+task2$strata
+# 63/228 = 0.276 # censored (low, but what to do!)
+
+# check if folds are stratified by status
+rsmp_holdout$instantiate(task2)
+get_cens_distr(rsmp_holdout, status) # YAY!
+
+rsmp_cv$instantiate(task2)
+get_cens_distr(rsmp_cv, status) # YAY!
+
+rsmp_rcv = rsmp('repeated_cv', folds = 7, repeats = 4)
+rsmp_rcv$instantiate(task2)
+get_cens_distr(rsmp_rcv, status) # YAY!
+dplyr::bind_rows(cens_distr(rsmp_rcv, status), .id = 'rep') %>% as.data.frame()
+
+# Stratify by status + sex ----
+sex = task$data(cols = 'sex')[['sex']]
+sex
+prop.table(table(sex))
+## 40% females, 60% males (almost balanced, will serve as an example though)
+
+## Holdout censoring and sex stratification check ----
+rsmp_holdout$instantiate(task)
+
+inst = dplyr::bind_rows(
+  tibble(row_id = rsmp_holdout$instance$train, fold = 'train'),
+  tibble(row_id = rsmp_holdout$instance$test,  fold = 'test')
+)
+inst %>%
+  add_column(status = status[inst$row_id]) %>%
+  add_column(sex = sex[inst$row_id]) %>%
+  group_by(fold) %>%
+  summarise(censored = sum(status == 0)/n(), males = sum(sex == 'm')/n())
+# Mix of things
+
+task2 = task$clone()
+task2$col_roles$stratum = c('status', 'sex')
+task2$strata # good to check this!!! => 4 subpopulations
+rsmp_holdout$instantiate(task2)
+
+inst = dplyr::bind_rows(
+  tibble(row_id = rsmp_holdout$instance$train, fold = 'train'),
+  tibble(row_id = rsmp_holdout$instance$test,  fold = 'test')
+)
+inst %>%
+  add_column(status = status[inst$row_id]) %>%
+  add_column(sex = sex[inst$row_id]) %>%
+  group_by(fold) %>%
+  summarise(censored = sum(status == 0)/n(), males = sum(sex == 'm')/n()) # YAY
+
+## CV censoring and sex stratification check ----
+rsmp_cv = rsmp('cv', folds = 15)
+rsmp_cv$instantiate(task)
+as_tibble(rsmp_cv$instance) %>%
+  add_column(status = status[rsmp_cv$instance$row_id]) %>%
+  add_column(sex = sex[rsmp_cv$instance$row_id]) %>%
+  group_by(fold) %>%
+  summarise(censored = sum(status == 0)/n(), males = sum(sex == 'm')/n()) # MIX
+
+rsmp_cv$instance %>%
+  as_tibble() %>%
+  count(fold) # balanced number of folds
+
+rsmp_cv$instantiate(task2)
+as_tibble(rsmp_cv$instance) %>%
+  add_column(status = status[rsmp_cv$instance$row_id]) %>%
+  add_column(sex = sex[rsmp_cv$instance$row_id]) %>%
+  group_by(fold) %>%
+  summarise(censored = sum(status == 0)/n(), males = sum(sex == 'm')/n())
+#' Better, but not perfect due to sub-populations in `$strata` being unbalanced
+#' and the number of folds being too large (e.g. >5)
+#' (SOS) => The larger the number of folds, the more difference between
+#' stratified and un-stratified CV
+
+rsmp_cv$instance %>%
+  as_tibble() %>%
+  count(fold) # number of folds differs a bit (as per doc)
