@@ -168,7 +168,7 @@ autoplot(instance, type = 'surface') # YES! contour surface
 
 # Branching ----
 ?mlr_pipeops_branch
-branch_po = po('branch', options = c('nop', 'pca', 'scale'))
+branch_po = po('branch', options = c('nop', 'pca', 'scale'), selection = 'scale')
 unbranch_po = po('unbranch', options = c('nop', 'pca', 'scale'))
 
 disconn_graph = gunion(graphs = list(
