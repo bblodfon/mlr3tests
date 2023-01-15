@@ -82,6 +82,17 @@ surv_tbl %>% ggplot(aes(x = times)) +
   labs(x = 'Times', y = 'Survival') +
   theme_bw(base_size = 14) + theme(legend.position = 'top')
 
+surv_tbl %>%
+  tidyr::pivot_longer(cols = c('a', 'b', 'c' , 'd', 'e'),
+                      names_to = 'Patient',
+                      values_to = 'Sprob') %>%
+  ggplot(aes(x = times, y = Sprob, color = Patient)) +
+  geom_line() +
+  labs(x = 'Days', y = 'Survival Probability') +
+  theme_bw(base_size = 18) +
+  theme(legend.position = 'none')
+ggsave(filename = 'mlr3proba/trees/lung_rsf5.png', width = 7, height = 5)
+
 chf_tbl %>% ggplot(aes(x = times)) +
   geom_line(aes(y = a, color = '1')) +
   geom_line(aes(y = b, color = '2'), linetype = 'dashed') +
