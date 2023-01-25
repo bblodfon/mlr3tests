@@ -82,3 +82,23 @@ sel_feat = flt('selected_features', learner = lrn('classif.rpart'))
 embed_flt = po('filter', filter = sel_feat, filter.cutoff = 0.5)
 out_task = embed_flt$train(list(task))[[1L]]
 out_task
+
+# find_correlation (caret) ----
+# remove highly correlated features
+?mlr_filters_find_correlation
+filter = flt('find_correlation', method = 'pearson', use = 'pairwise.complete.obs')
+filter$calculate(task)
+as.data.table(filter$scores)
+
+# with filter cutoff = 0.4
+poflt = po('filter', filter = filter, filter.cutoff = 0.4) # remove > 0.9 correlation
+task2 = poflt$train(list(task))[[1L]]
+as.data.table(poflt$state$scores) # exclude everything below a provided cutoff
+sum(poflt$state$scores <= 0.4) # 5 features removed
+
+mat = task$data(cols = task$feature_names) %>% as.matrix()
+corm = stats::cor(mat, use = 'pairwise.complete.obs', method = 'pearson')
+high_corr_features = caret::findCorrelation(corm, cutoff = 0.9)
+length(high_corr_features) # 1 feature removed
+high_corr_features2 = caret::findCorrelation(corm, cutoff = 0.6)
+length(high_corr_features2) # 5 features removed, same as above with filter
