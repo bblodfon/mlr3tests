@@ -20,6 +20,32 @@ task_lung$col_info
 missing_cols = names(which(task_lung$missings() > 0))
 missing_cols # 5 columns have missing values
 
+# Using selectors ----
+imp_hist = po("imputehist", affect_columns = selector_intersect(
+  selector_missing(), selector_type('numeric')
+  )
+)
+imp_hist$param_set$values$affect_columns(task_lung) # you see which features will be affected
+task_lung$col_info
+
+imp_hist$train(list(task_lung))[[1L]]$missings() # ph.ecog is an integer column so it wasn't affected
+imp_hist$state$affected_cols
+task4 = imp_hist$train(list(task_lung))[[1L]]
+task4$missings()
+
+imp_learner = po('imputelearner', lrn('regr.rpart'), # regr => integer or numeric features
+  context_columns = selector_all(), # use all features for training
+  affect_columns = selector_missing()) # impute only on missing columns
+task5 = imp_learner$train(list(task_lung))[[1L]]
+task5$missings() # all were imputed
+
+mlr_reflections$task_feature_types
+
+imp_learner2 = po('imputelearner', lrn('regr.rpart')) #, # regr => integer or numeric features
+  #affect_columns = selector_intersect(selector_type('factor'), selector_missing()))
+task6 = imp_learner2$train(list(task_lung))[[1L]]
+task6
+
 # https://mlr-org.com/gallery/2020-01-30-impute-missing-levels/
 # New task with missing indicator columns ("dummy columns")
 imp_missind = po("missind")
@@ -28,7 +54,7 @@ tail(task_ext$data())
 
 # New task with imputed values on every column
 imp_num = po("imputehist", affect_columns = selector_type("numeric"))
-imp_hist = po("imputehist")
+imp_hist = po("imputehist", affect_columns = selector_missing())
 
 new_task1 = imp_num$train(list(task = task_lung))[[1]]
 new_task2 = imp_hist$train(list(task = task_lung))[[1]]
@@ -150,3 +176,18 @@ names(task$missings())[task$missings() != 0] # 4 numeric columns with NAs
 imp_lrn2$state$affected_cols
 imp_lrn2$state$model$flipper_length
 
+## Examples ----
+imp_regr.tree = po('imputelearner', learner = lrn('regr.rpart'), # regr => integer or numeric features
+  #context_columns = selector_all(), # use all features for training (default)
+  affect_columns = selector_missing()) # impute only on missing columns (that are numeric)
+
+imp_classif.xgboost = po('imputelearner',
+  learner = lrn('classif.xgboost', nthread = 6, nrounds = 100, eta = 0.01),
+  context_columns = selector_all(), # all features for training the imputed learner
+  affect_columns = selector_missing() # only the missing columns are imputed
+)
+
+imp_regr.xgboost = po('imputelearner',
+  learner = lrn('regr.xgboost', nthread = 12, nrounds = 100, eta = 0.01),
+  affect_columns = selector_missing() # only the missing columns are imputed
+)
