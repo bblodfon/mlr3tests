@@ -157,7 +157,11 @@ sbs$optimization_path(at_sbs$fselect_instance) # first result of each batch
 ### Calculate #subsets ----
 n = 10000 # number of total features
 n_features = 1 # run until these number of features
+<<<<<<< HEAD
 feature_fraction = 0.7
+=======
+feature_fraction = 0.8
+>>>>>>> c4ff104 (investigation: finding the 'best' adaptive mtry.ratio formula)
 feature_number = 5
 
 # first way with `feature_number`:
@@ -170,7 +174,7 @@ subset_sizes
 
 ### mtry.ratio formula ----
 # Decide on a formula for adaptive mtry.ratio when using ranger learner in RFE
-mr = 0.1 # mtry.ratio (initial for all features)
+mr = 0.05 # mtry.ratio (initial for all features)
 dt = data.table(subset_size = subset_sizes)
 dt[, mr1 := 1 - ((subset_size - 1) / (n + 2))]
 dt[, mtry1 := ceiling(mr1 * subset_size)]
