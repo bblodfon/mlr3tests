@@ -151,11 +151,11 @@ sbs$optimization_path(at_sbs$fselect_instance) # first result of each batch
 #' from learner, remove features, repeat until `n_features` are left
 
 #' `feature_fraction`/`feature_number`/`subset_sizes` control how many features to remove in each iteration (or keep) and are mutually exclusive
-#' See: https://github.com/mlr-org/mlr3fselect/blob/HEAD/R/FSelectorRFE.R#L108
+#' See: https://github.com/mlr-org/mlr3fselect/blob/HEAD/R/FSelectorRFE.R#L119
 #' `feature_number` comes first, `subset_sizes` second, and last `feature_fraction`
 
 # Calculate how many subsets will be run:
-n = 10465 # number of total features
+n = 10000 # number of total features
 n_features = 2 # run until these number of features
 feature_fraction = 0.8
 feature_number = 5
@@ -164,14 +164,14 @@ feature_number = 5
 seq(from = n - feature_number, to = n_features, by = -feature_number)
 # second way (manual subsets):
 subset_sizes = c(10000, 9000, 8000, 5000, 500, 100, 20, 6, 4)
-# third way:
-unique(floor(cumprod(c(n, rep(feature_fraction, log(n_features / n) / log(feature_fraction))))))[-1]
+# third way (includes the first:
+unique(floor(cumprod(c(n, rep(feature_fraction, log(n_features / n) / log(feature_fraction))))))
 
 at = AutoFSelector$new(
   learner = learner,
   resampling = rsmp_cv, # rsmp('repeated_cv', repeats = 10, folds = 5),
   measure = measure,
-  terminator = trm('none'), # not necessary to set
+  terminator = trm('none'), # necessary to set (but is disregarded)
   #fselector = fs('rfe', n_features = 2, feature_number = 1),
   #fselector = fs('rfe', subset_sizes = c(50, 40, 30, 20, 10, 2)),
   fselector = fs('rfe', feature_fraction = 0.65, n_features = 2),
