@@ -10,24 +10,30 @@ library(data.table)
 task = tsk('spam')
 
 # learner has `importance` and `oob_error` properties
-learner = lrn('classif.ranger', num.threads = 10, num.trees = 50, importance = 'permutation')
+learner = lrn('classif.ranger', num.threads = 10, num.trees = 50,
+  importance = 'permutation', mtry.ratio = 0.1)
 
 # so I can do the following
 learner$train(task)
 learner$importance() # for RFE
 learner$oob_error()
 
+mr = 0.5
+n = length(task$feature_names)
+
 callback_mtry = callback_fselect('mtry',
   on_eval_after_design = function(callback, context) {
-    n = length(context$design$task[[1]]$feature_names)
+    nfeats = length(context$design$task[[1]]$feature_names)
     # compute new mtry.ratio based on #features n
-    mtry.ratio = 1 - ((n - 1) / (60 - 1))
+    #mtry.ratio = 1 - ((nfeats - 1) / (60 - 1))
+    # new adaptive mtry.ratio formula
+    mtry.ratio = mr^(log(nfeats)/log(n))
+
     context$design$learner[[1]]$param_set$set_values(mtry.ratio = mtry.ratio)
   })
 
 learner = lrn('classif.ranger', num.threads = 10, num.trees = 50,
   importance = 'permutation', mtry.ratio = 0.1)
-task = tsk('spam') # no missings
 
 instance = FSelectInstanceSingleCrit$new(
   task = task,
@@ -39,7 +45,7 @@ instance = FSelectInstanceSingleCrit$new(
   store_models = TRUE
 )
 
-fselector = fs('rfe', feature_fraction = 0.8, n_features = 2)
+fselector = fs('rfe', feature_fraction = 0.8, n_features = 1)
 
 tic()
 fselector$optimize(instance) # 4 secs
@@ -54,7 +60,8 @@ ce = as.data.table(instance$archive)$oob_error # OOB miss-classification error
 mtry_ratios = unlist(mlr3misc::map(as.data.table(instance$archive)$resample_result, function(rr) rr$learner$param_set$values$mtry.ratio))
 
 dt = data.table(subset_size = subset_sizes, classif_error = ce, mtry.ratio = mtry_ratios)
-dt[, mtry_ratio_formula := 1 - ((subset_size - 1) / (60 - 1))] # add formula
+dt[, mr1 := mr^(log(subset_size)/log(n))] # same formula as above
+dt[, mtry1 := ceiling(mr1 * subset_size)]
 dt
 
 ## Time with normal CV ----
