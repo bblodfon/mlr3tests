@@ -154,19 +154,45 @@ sbs$optimization_path(at_sbs$fselect_instance) # first result of each batch
 #' See: https://github.com/mlr-org/mlr3fselect/blob/HEAD/R/FSelectorRFE.R#L119
 #' `feature_number` comes first, `subset_sizes` second, and last `feature_fraction`
 
-# Calculate how many subsets will be run:
+### Calculate #subsets ----
 n = 10000 # number of total features
-n_features = 2 # run until these number of features
-feature_fraction = 0.8
+n_features = 1 # run until these number of features
+feature_fraction = 0.7
 feature_number = 5
 
 # first way with `feature_number`:
 seq(from = n - feature_number, to = n_features, by = -feature_number)
 # second way (manual subsets):
 subset_sizes = c(10000, 9000, 8000, 5000, 500, 100, 20, 6, 4)
-# third way (includes the first:
-unique(floor(cumprod(c(n, rep(feature_fraction, log(n_features / n) / log(feature_fraction))))))
+# third way (includes the first iteration - all features)
+subset_sizes = unique(floor(cumprod(c(n, rep(feature_fraction, log(n_features / n) / log(feature_fraction))))))
+subset_sizes
 
+### mtry.ratio formula ----
+# Decide on a formula for adaptive mtry.ratio when using ranger learner in RFE
+mr = 0.1 # mtry.ratio (initial for all features)
+dt = data.table(subset_size = subset_sizes)
+dt[, mr1 := 1 - ((subset_size - 1) / (n + 2))]
+dt[, mtry1 := ceiling(mr1 * subset_size)]
+dt[, mr2 := ((n - subset_size)/n)]
+dt[, mtry2 := ceiling(mr2 * subset_size)]
+dt[, mr3 := mr^(log(subset_size)/log(n))] # magic formula!!!
+dt[, mtry3 := ceiling(mr3 * subset_size)]
+dt
+
+melt(dt, measure.vars = grep('mr', colnames(dt))) %>%
+  ggplot(aes(x = subset_size, y = value, color = variable)) +
+  geom_point() +
+  labs(x = 'Subset Size', y = 'mtry ratio') +
+  theme_bw(base_size = 14)
+
+melt(dt, measure.vars = grep('try', colnames(dt))) %>%
+  ggplot(aes(x = subset_size, y = value, color = variable)) +
+  geom_point() +
+  labs(x = 'Subset Size', y = 'mtry') +
+  theme_bw(base_size = 14)
+
+### run RFE ----
 at = AutoFSelector$new(
   learner = learner,
   resampling = rsmp_cv, # rsmp('repeated_cv', repeats = 10, folds = 5),
