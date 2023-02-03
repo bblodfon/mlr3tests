@@ -46,6 +46,9 @@ pred$distr
 # Get the same matrix of probabilities on the times of the training dataset with:
 all(1 - pred$distr$getParameterValue('cdf') == pred$data$distr)
 
+# `pred$data$distr` is the survival
+all(pred$distr$getParameterValue('survival') == pred$data$distr)
+
 # So, if I am correct, the above result is only for the times in the train
 # dataset, not in between or later timepoints that I might want. So, let's
 # work with the following:
@@ -63,7 +66,7 @@ pred$distr$cumHazard(times) # seems okay
 # Are the following the survival probabilities at the specific timepoints?
 pred$distr$survival(times) # seems okay
 
-?Matdist # doesn't include any documentation on survival* and *hazard* methods!
+?Matdist # doesn't include any documentation on *survival* and *hazard* methods!
 
 ##########################################################
 # Survival curves for the predicted `task_test` (5 rats) #

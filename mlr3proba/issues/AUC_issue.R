@@ -1,9 +1,9 @@
 library("mlr3verse")
 library('mlr3extralearners')
 
-################################
-# Only Uno's AUC was trustworthy
-################################
+#'###############################
+#' Only Uno's AUC was trustworthy
+#'###############################
 
 task = tsk("rats")
 task$select(c("litter", "rx"))
@@ -17,7 +17,8 @@ measures = msrs(c('surv.uno_auc', 'surv.chambless_auc', 'surv.hung_auc'))
 
 measure_uno = msr('surv.uno_auc')
 measure_uno$param_set$values = list(integrated = TRUE, times = c(1,10,100))
-# integrated means one measure => if `times` not given, it's the sorted, unique test dataset times!
+# integrated means one result => if `times` not given, it's the sorted, unique test dataset times!
+# https://github.com/mlr-org/mlr3proba/blob/HEAD/R/MeasureSurvAUC.R#L52
 measure_uno$param_set$values = list(integrated = FALSE, times = 100) # times is required as a scalar???
 measure_uno
 prediction_lp$score(measures = measure_uno, task = task, train_set = 1:280)
