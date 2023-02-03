@@ -21,6 +21,7 @@ learner$oob_error()
 mr = 0.5
 n = length(task$feature_names)
 
+callback_mtry = callback_fselect('empty')
 callback_mtry = callback_fselect('mtry',
   on_eval_after_design = function(callback, context) {
     nfeats = length(context$design$task[[1]]$feature_names)
