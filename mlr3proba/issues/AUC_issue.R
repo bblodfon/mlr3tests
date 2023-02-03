@@ -15,6 +15,20 @@ prediction_lp = learner_lp$train(task, row_ids = 1:280)$predict(task, row_ids = 
 mlr_measures$keys(pattern = '^surv')
 measures = msrs(c('surv.uno_auc', 'surv.chambless_auc', 'surv.hung_auc'))
 
+
+# issue with `times` => https://github.com/mlr-org/mlr3proba/issues/315
+uno_auc = msr('surv.uno_auc', integrated = FALSE)
+uno_auc$param_set$values$integrated # TRUE
+
+uno_auc = msr('surv.uno_auc', times = 100)
+uno_auc$param_set$values$times # NULL
+
+uno_auc$param_set$values$times = 100 # now it takes it
+uno_auc
+
+# SOS: you have to set parameters like below due to faulty initialization in the code!
+# See: https://github.com/mlr-org/mlr3proba/blob/main/R/MeasureSurvUnoAUC.R#L29
+# `times` is never set!
 measure_uno = msr('surv.uno_auc')
 measure_uno$param_set$values = list(integrated = TRUE, times = c(1,10,100))
 # integrated means one result => if `times` not given, it's the sorted, unique test dataset times!
