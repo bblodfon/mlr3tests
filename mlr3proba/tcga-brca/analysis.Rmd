@@ -1,0 +1,512 @@
+---
+title: "Survival ML workflow mlr3 and mlr3proba"
+author: "[John Zobolas](https://github.com/bblodfon)"
+date: "Last updated: `r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document:
+    css: style.css
+    theme: united
+    toc: true
+    toc_float:
+      collapsed: false
+      smooth_scroll: true
+    toc_depth: 3
+    number_sections: false
+    code_folding: show
+    code_download: true
+bibliography: references.bib
+link-citations: true
+---
+
+```{r, include=FALSE}
+knitr::opts_chunk$set(
+  comment = ''
+)
+```
+
+# Overview {-}
+
+:::{.green-box}
+Using the `mlr3` ML framework and the `mlr3proba` R library, we will learn to:
+
+- Create a survival task from a dataset and split it to train and test sets
+- Define a Cox-Lasso model that makes both relative risk and survival distribution predictions and train/tune it on the train set
+- Extract selected features from the trained Cox-Lasso model
+- Make predictions using the trained Cox-Lasso model on the separate test set
+- Measure the performance of our model (discrimination and calibration) using several survival measures
+- Using resampling techniques, we will assess our model's capacity for generalization (prediction on unseen data) and the stability of the model's selected features
+:::
+
+# TCGA BRCA Dataset {-}
+
+Load dataset and use only features age, ethnicity and the PAM50 genes (using George's code):
+```{r, eval=FALSE}
+load('TCGA_clin_rna.RData')
+RNA_count = TCGA_clin_rna$RNA_count
+clin      = TCGA_clin_rna$clin
+
+# extract the PAM50 genes of TCGA-BRCA patients
+TCGA_PAM50 <- RNA_count[sapply(strsplit(rownames(RNA_count), '.', fixed = TRUE), function(x) x[[1]]) %in% c(
+'ENSG00000077152', 'ENSG00000089685', 'ENSG00000143228', 'ENSG00000094804', 'ENSG00000134057',
+'ENSG00000176890', 'ENSG00000101057', 'ENSG00000138180', 'ENSG00000165304', 'ENSG00000080986',
+'ENSG00000171848', 'ENSG00000175063', 'ENSG00000117724', 'ENSG00000164611', 'ENSG00000174371',
+'ENSG00000091651', 'ENSG00000011426', 'ENSG00000105173', 'ENSG00000117399', 'ENSG00000148773',
+'ENSG00000142945', 'ENSG00000133627', 'ENSG00000136997', 'ENSG00000146648', 'ENSG00000186081',
+'ENSG00000092621', 'ENSG00000062038', 'ENSG00000261857', 'ENSG00000128422', 'ENSG00000054598',
+'ENSG00000104332', 'ENSG00000186847', 'ENSG00000091831', 'ENSG00000141424', 'ENSG00000107262',
+'ENSG00000186868', 'ENSG00000082175', 'ENSG00000171604', 'ENSG00000115648', 'ENSG00000171791',
+'ENSG00000135679', 'ENSG00000171428', 'ENSG00000129514', 'ENSG00000106605', 'ENSG00000099953',
+'ENSG00000173890', 'ENSG00000160867', 'ENSG00000141738', 'ENSG00000151715', 'ENSG00000141736'), ]
+# use gene symbols instead of Esembl IDs
+rownames(TCGA_PAM50) <- 
+  c('UBE2T', 'BIRC5', 'NUF2', 'CDC6', 'CCNB1', 'TYMS', 'MYBL2', 'CEP55', 'MELK', 'NDC80', 'RRM2', 
+    'UBE2C', 'CENPF', 'PTTG1', 'EXO1', 'ORC6L', 'ANLN', 'CCNE1', 'CDC20', 'MKI67', 'KIF2C', 
+    'ACTR3B', 'MYC', 'EGFR', 'KRT5', 'PHGDH', 'CDH3', 'MIA', 'KRT17', 'FOXC1', 'SFRP1', 'KRT14', 
+    'ESR1', 'SLC39A6', 'BAG1', 'MAPT', 'PGR', 'CXXC5', 'MLPH', 'BCL2', 'MDM2', 'NAT1', 'FOXA1', 
+    'BLVRA', 'MMP11', 'GPR160', 'FGFR4', 'GRB7', 'TMEM45B', 'ERBB2')
+
+# log2-transformation of the normalized count data
+TCGA_PAM50 <- log2(TCGA_PAM50 + 1)
+
+## for demonstration simplicity, PAM50 genes are used here
+x <- cbind(age = clin$age, ethnicity = factor(clin$ethnicity), t(TCGA_PAM50))
+y <- cbind(time = clin$time, status = clin$status)
+```
+
+Save reduced `data.frame` with only $52$ features for future use:
+```{r, eval=FALSE}
+data = cbind.data.frame(x,y)
+saveRDS(data, file = 'data.rds')
+```
+
+# Survival ML workflow {-}
+
+For the rest of the analysis, we will borrow the terminology from the `mlr3` ecosystem of machine learning packages.
+See [mlr3 book](https://mlr3book.mlr-org.com/) for more details.
+
+First, we load the necessary `mlr3` libraries [@Lang2019; @Sonabend2021] and some other useful ones:
+```{r, message=FALSE}
+library(mlr3verse) # mlr3, mlr3pipeplines, mlr3learners, mlr3tuning, paradox, etc.
+library(mlr3proba) # probabilistic learning and survival analysis
+library(mlr3extralearners) # for lrn('surv.glmnet')
+library(dplyr)
+library(ggplot2)
+```
+
+## Survival task {-}
+
+We construct an `mlr3` *task* (our TCGA BRCA reduced dataset essentially):
+```{r}
+data = readRDS(file = 'data.rds')
+task = mlr3proba::as_task_surv(x = data, 
+  time = 'time', event = 'status', id = 'BRCA-TCGA'
+)
+task
+```
+
+Since this is an [R6 class](https://r6.r-lib.org/index.html) object, we can use the dollar `$` to access various functions, fields (parameters), etc.
+For example, fitting the Kaplan-Meier (KM) using `survival::survfit()` is as simple as follows:
+```{r}
+task$kaplan()
+```
+
+`mlr3proba` comes with easy "standard" visualizations, e.g. to get the KM curve, you just do:
+```{r, message=FALSE}
+# ?autoplot.TaskSurv
+autoplot(task)
+```
+
+The red crosses show that our dataset is heavily censored.
+
+Lastly, we partition our survival task into train and test sets $(80\%/20\%)$ to use for training and testing our model in the next sections:
+```{r}
+set.seed(42)
+split = mlr3::partition(task, ratio = 0.8)
+# split$train # => train set indexes
+# split$test # => test set indexes
+```
+
+## Cox-Lasso {-}
+
+We define a Cox-Lasso model (a *learner* in `mlr3`) and print some basic information about it as follows:
+```{r}
+coxlasso = lrn('surv.cv_glmnet', alpha = 1, nfolds = 5, s = 'lambda.min')
+coxlasso
+```
+
+Note that this is essentially a wrapper around the `glmnet::cv.glmnet()` function, which performs an inner cross-validation for the `lambda` parameter (i.e. tries a lot of them) to decide which one is best (e.g. here the one the minimizes the Cox partial likelihood).
+So, given a dataset, `coxlasso` will be tuned and an appropriate `lambda` will be found.
+The `s` parameter denotes which `lambda` should be used for prediction.
+Use `coxlasso$help()` to see the respective documentation.
+
+## Train {-}
+
+Train Cox-Lasso model (also tunes `lambda`):
+```{r}
+set.seed(42)
+coxlasso$train(task, row_ids = split$train)
+coxlasso$model # get the cv.glmet fit
+```
+
+We can specify the $2$ clinical variables to be *mandatory* (i.e. not penalized) and re-train the model:
+```{r}
+#tail(task$feature_names) # age, ethnicity are the 2 last
+pf = c(rep(1, length(task$feature_names) - 2), rep(0, 2))
+
+coxlasso$reset() # un-train model
+coxlasso$param_set$values$penalty.factor = pf # specify new parameter
+
+set.seed(3)
+coxlasso$train(task, row_ids = split$train) # retrain new model
+coxlasso$model
+```
+
+## Selected features {-}
+
+The Cox-Lasso model performs feature selection.
+We can get the selected features from the model, based on the given lambda (here `s` = `lambda.min`):
+```{r}
+coxlasso$selected_features() # uses `s` (lambda.min)
+```
+
+or specify another `lambda`, e.g. `lambda.1se` (corresponding to a simpler Cox model, as most features have zero coefficients):
+```{r}
+coxlasso$selected_features(lambda = coxlasso$model$lambda.1se)
+```
+
+## Predict relative risks {-}
+
+Let's make predictions using our trained model on the test (validation) set:
+```{r}
+p = coxlasso$predict(task, row_ids = split$test)
+head(as.data.table(p))
+```
+
+So for every (new) patient in the test set, the Cox-Lasso model prediction is a linear predictor of the form $lp = \hat{\beta} X_{new}$.
+`crank` stands for continuous ranking/relative risk and it's the same as `lp` for the
+Cox-Lasso model.
+See respective [documentation](https://mlr3proba.mlr-org.com/reference/PredictionSurv.html).
+
+## Predict survival distributions {-}
+
+A Cox-PH (proportional hazards) model (and Cox-Lasso as a consequence) is a semi-parametric model, which means that it does not produce survival distribution predictions by default.
+This means that you can't predict an individual survival curve per patient in the test set.
+However, using the function `survival::survfit.coxph()` you can transform the `cv.glmnet` risk predictions (`lp`) to survival distribution predictions.
+This transformation internally uses the Breslow estimator for the cumulative baseline hazard (see `stype` parameter).
+
+Using `mlr3proba` [@Sonabend2021], we can construct a pipeline [@mlr3pipelines2021] that combines the distribution predictions of a baseline model (e.g. Kaplan Meier) with the predictions of a model that predicts relative risk scores (e.g. Cox-Lasso).
+The whole idea is that the transformation (i.e. choice of the survival function form and baseline survival distribution estimator) becomes more *transparent* and part of the learner itself.
+Also, the same procedure (i.e. code) can be applied to other survival models under the corresponding assumptions of the transformation.
+See more details on the respective [documentation](https://mlr3proba.mlr-org.com/reference/mlr_pipeops_compose_distr.html).
+
+We create a Cox-Lasso graph learner:
+```{r}
+coxlasso$reset() # un-train
+
+# ?mlr_graphs_distrcompositor
+coxlasso_grlrn = mlr3pipelines::ppl('distrcompositor',
+  learner = coxlasso,
+  estimator = 'kaplan', # KM estimator for the baseline
+  form = 'ph', # Proportional Hazards form since we use a Cox-Lasso model
+  graph_learner = TRUE
+)
+coxlasso_grlrn$id = 'Cox-Lasso'
+coxlasso_grlrn$graph_model$plot(html = TRUE)
+```
+
+We can now train the Cox-Lasso graph learner (fit/model object is exactly the same):
+```{r}
+set.seed(3)
+coxlasso_grlrn$train(task, row_ids = split$train)
+coxlasso_grlrn$model$surv.cv_glmnet$model
+```
+
+Get the survival distribution predictions ($distr$) along with the relative risk scores ($lp$):
+```{r}
+pred = coxlasso_grlrn$predict(task, row_ids = split$test)
+head(as.data.table(pred))
+```
+
+We can request for the probability of survival at **any time point** of interest, e.g. at $1,5,10,20$ years and **for any patient in the test set**.
+This is all the information needed to produce an individual, i.e. per-patient survival curve.
+See more details in `?distr6::MatDist` and `?distr6::ExoticStatistics` objects of the [distr6](https://github.com/alan-turing-institute/distr6) `R` package used by `mlr3proba`.
+
+So for the first two patients in our test set we have:
+```{r}
+times = c(1,5,10,20)
+pred$distr$survival(times)[,c(1,2)]
+
+# same logic for the cumulative hazard
+# pred$distr$cumHazard(times)[,c(1,2)]
+```
+
+Lastly, we can visualize and compare the average survival predictions of all patients in the test set using the Cox-Lasso model with the Kaplan-Meier (KM) predictions (this is a form of *calibration* plot and it shows that our $distr$ predictions are not so good):
+```{r, cache=T}
+# ?autoplot.PredictionSurv
+autoplot(pred, type = 'calib', task = task, row_ids = split$test) +
+  ylim(c(0,1))
+```
+
+## Model evaluation (discrimination) {-}
+
+We want to test our Cox-Lasso model and see how well it was able to **discriminate the patients in the test set**.
+For this we need to use the $lp$ relative risk predictions of Cox-Lasso model and measures such as the C-index and ROC-AUC.
+These measures can be *time-independent* (C-index, integrated $\text{ROC-AUC}$) or *time-dependent* (e.g. $\text{ROC-AUC}(t)$).
+
+- Harrell's C-index [@Harrell1982]:
+```{r}
+harrell_c = msr('surv.cindex')
+harrell_c$id = 'surv.cindex.harrell'
+```
+
+Note that similar to the tasks, learners, prediction objects, etc. every `mlr3` measure is an `R6` object, so we can get some details about it:
+```{r}
+harrell_c
+```
+So higher C-index is better (`minimize = FALSE`), it takes values in the $[0,1]$ range and uses the $crank$ predictions to calculate its score (which are the same as $lp$ for Cox-Lasso, as we saw earlier).
+
+Get the Harrell's C-index score:
+```{r}
+pred$score(harrell_c)
+```
+
+- Uno's C-index [@Uno2011]:
+```{r}
+uno_c = msr('surv.cindex', weight_meth = 'G2')
+uno_c$id = 'surv.cindex.uno'
+
+# Uno's C needs the train data
+pred$score(uno_c, task = task, train_set = split$train)
+```
+
+- Uno's ROC AUC [@Uno2007] (integrated across all time points of the test set):
+```{r}
+uno_iauc = msr('surv.uno_auc') # integrated = TRUE # default
+uno_iauc$id = 'surv.uno_iauc'
+# sort(unique(pred$truth[,1])) # timepoints used
+
+# needs the train dataset
+# uno_iauc$properties
+pred$score(uno_iauc, task = task, train_set = split$train)
+```
+
+- Uno's ROC AUC (at a specific time point, e.g. $10$ years):
+```{r}
+uno_auc = msr('surv.uno_auc')
+uno_auc$id = 'surv.uno_auc.10'
+
+# you have to set the parameters for this measure like this (fixed it, wait for Raphael to merge the PR)
+uno_auc$param_set$values = list(integrated = FALSE, times = 10)
+
+# needs the train dataset
+pred$score(uno_auc, task = task, train_set = split$train)
+```
+
+## Model evaluation (calibration) {-}
+
+We want to test how well our Cox-Lasso model was **calibrated**.
+Usually we derive an estimation of the error between the survival distributions ($distr$ predictions) of the patients in the test set and their actual survival outcome (i.e. the survival task's `time` and `status` variables).
+The most frequently used score is the Brier Score [@Graf1999]:
+
+- Integrated Brier Score (across all time points of the test set):
+```{r}
+ibrier = msr('surv.brier', proper = TRUE)
+# ibrier$help() # see documentation
+
+# uses the `distr` predictions
+ibrier$predict_type
+```
+
+```{r}
+# better to use the train dataset for the Kaplan-Meier estimation of the censoring distribution, but can use the test set as well
+pred$score(ibrier, task = task, train_set = split$train)
+```
+
+We can also get the *standard error* (the above result is the mean across all the test set's patients) as follows:
+```{r}
+ibrier_se = msr('surv.brier', proper = TRUE, se = TRUE)
+pred$score(ibrier_se, task = task, train_set = split$train)
+```
+
+- Brier Score at a specific time point, e.g. $10$ years:
+```{r}
+brier10 = msr('surv.brier', proper = TRUE, integrated = FALSE, times = 10)
+brier10$id = 'surv.graf.10'
+
+# better to use the train dataset for the Kaplan-Meier estimation of the censoring distribution, but can use the test set as well
+pred$score(brier10, task = task, train_set = split$train)
+```
+
+- Get a **prediction error curve**, where the Brier score is evaluated on each separate time point of the test set:
+```{r, cache=T}
+mlr3proba::pecs(pred, measure = 'graf', train_task = task, train_set = split$train) +
+  ggtitle('Prediction Error Curve for Cox-Lasso (test set)') +
+  labs(y = 'Brier Score', x = 'Time (years)') +
+  theme_bw(base_size = 12)
+```
+
+So it seems that our Cox-Lasso model's survival predictions get worse with time, as we also observed when comparing these with the KM survival predictions of our test patient cohort.
+
+Two more measures for assessing calibration:
+
+- Right-censored Log Loss score (RCLL) [@Avati2020]:
+```{r}
+rcll = msr('surv.rcll')
+pred$score(rcll)
+```
+
+- D-calibration [@Humza2020]:
+```{r}
+dcal = msr('surv.dcalib')
+pred$score(dcal)
+```
+
+:::{.info-box .note}
+View all available survival measures included in `mlr3proba` [here](https://mlr3proba.mlr-org.com/reference/#survival-measures)
+:::
+
+# Resampling {-}
+
+Given that we don't have a completely separate dataset to test our Cox-Lasso model's performance, we proceed by resampling the BRCA-TCGA dataset to get an uncertainty quantification of our model's *generalizability*, i.e. how well can it predict survival outcome in unseen data.
+
+We will perform a **stratified split** of our BRCA-TCGA task to train and test sets (with a $80\%/20\%$ ratio as before). 
+The number of splits will be set to $100$.
+Stratification on the censoring indicator `status` is important because we want our train and test sets to have the same censoring distribution as the initial dataset.
+Thus we can avoid measuring performance on test sets with severely different censoring distributions that might influence the performance scores.
+
+Stratify survival task by `status`:
+```{r}
+coxlasso_grlrn$reset() # un-train model
+
+task$col_roles$stratum = 'status'
+task
+```
+
+Next, we define the resampling (`?mlr_resamplings_subsampling`), train the Cox-Lasso model on all train sets and store the fitted models for feature selection and evaluation:
+```{r, results='hide'}
+subsampling = rsmp('subsampling', repeats = 100, ratio = 0.8)
+
+set.seed(42)
+rr = mlr3::resample(task = task, learner = coxlasso_grlrn, 
+  resampling = subsampling, store_models = TRUE, store_backends = TRUE)
+```
+
+## Performance evaluation {-}
+
+We can use all the previously mentioned survival metrics to measure the performance of our trained Cox-Lasso models on the $100$ different test sets.
+Note that if a measure needs the train dataset it is automatically provided by the `ResampleResult` object (`rr`):
+```{r}
+measures = list(harrell_c, uno_c, uno_iauc, uno_auc, ibrier, brier10, rcll, dcal)
+
+res = rr$score(measures = measures)
+head(res)
+```
+
+We can easily extract and visualize the discrimination and calibration resampled performance of our Cox-Lasso model using several measures:
+```{r}
+set.seed(42)
+
+# C-indexes, ROC-AUCs (integrated and at t = 10 years)
+res[, .(surv.cindex.harrell, surv.cindex.uno, surv.uno_iauc, surv.uno_auc.10)] %>% 
+  tidyr::pivot_longer(cols = tidyselect::everything(), 
+    names_to = 'Measure', values_to = 'Value') %>%
+  mutate(Measure = case_when(
+    Measure == 'surv.cindex.harrell' ~ 'Harrell\'s C-index',
+    Measure == 'surv.cindex.uno' ~ 'Uno\'s C-index',
+    Measure == 'surv.uno_iauc' ~ 'Uno\'s Integrated ROC-AUC',
+    Measure == 'surv.uno_auc.10' ~ 'Uno\'s ROC-AUC (t = 10 years)',
+  )) %>%
+  ggplot(aes(x = Measure, y = Value, fill = Measure)) +
+    geom_boxplot() + 
+    ylim(c(0.2, 0.8)) + 
+    geom_hline(yintercept = 0.5, color = 'red', linetype = 'dashed') +
+    theme_bw(base_size = 14) + 
+    labs(title = 'Discrimination Measures') +
+    theme(axis.text.x = element_blank())
+```
+
+```{r, fig.show='hold', out.width='50%'}
+# different scales for each measure, so we separate the plots
+set.seed(42)
+
+# Integrated Brier Score and Brier Score at t = 10 years
+res[, .(surv.graf, surv.graf.10)] %>% 
+  tidyr::pivot_longer(cols = tidyselect::everything(), 
+    names_to = 'Measure', values_to = 'Value') %>%
+  mutate(Measure = case_when(
+    Measure == 'surv.graf' ~ 'IBS',
+    Measure == 'surv.graf.10' ~ 'BS(t=10)'
+  )) %>%
+  ggplot(aes(x = Measure, y = Value, fill = Measure)) +
+    geom_boxplot(show.legend = FALSE) + 
+    geom_jitter(color = 'blue', size = 0.5, alpha = 0.5, show.legend = FALSE) +
+    labs(title = 'Integrated Brier Score vs Brier Score (t = 10 years)') +
+    theme_bw(base_size = 14) + 
+    theme(axis.title.x = element_blank())
+
+# RCLL
+res[, .(surv.rcll)] %>% 
+  tidyr::pivot_longer(cols = tidyselect::everything(), 
+    names_to = 'Measure', values_to = 'Value') %>%
+  mutate(Measure = case_when(
+    Measure == 'surv.rcll' ~ 'RCLL'
+  )) %>%
+  ggplot(aes(x = Measure, y = Value)) +
+    geom_boxplot(show.legend = FALSE) + 
+    geom_jitter(color = 'blue', size = 0.5, alpha = 0.5, show.legend = FALSE) +
+    labs(title = 'Right-censored Log Loss') +
+    theme_bw(base_size = 14) +
+    theme(axis.title.x = element_blank(), axis.text.x = element_blank())
+```
+
+## Feature stability analysis {-}
+
+We can extract the selected features from all $100$ trained Cox-Lasso models and create a frequency selection table:
+```{r}
+# get selected features from all trained learners in a list
+sf_list = lapply(rr$learners, function(learner) {
+  learner$graph_model$pipeops$surv.cv_glmnet$learner_model$selected_features()
+})
+
+# make frequency selection table
+n = length(sf_list)
+fs_res = sort(table(unlist(sf_list)), decreasing = TRUE)
+times = as.vector(unname(fs_res))
+tibble::tibble(feat_name = names(fs_res), times = times, freq = times/n)
+```
+
+As `age` and `ethnicity` were not penalized, they have non-zero coefficients in all Cox-Lasso models and therefore are included in all selected features.
+
+Lastly, we can use the `R` package `stabm` [@stabm] to assess how similar the $100$ selected feature sets were.
+We will demonstrate the use of 3 metrics which measure the *stability* of the Cox-Lasso's feature selection on the BRCA-TCGA dataset:
+
+1. The Jaccard index
+2. Nogueira's metric (corrected for chance, i.e. independent of the number of features) [@Nogueira2018]
+3. Zucknick's metric (extension of Jaccard index that considers the correlation between the features) [@Zucknick2008]:
+
+```{r, warning=FALSE, cache=T}
+set.seed(42)
+library(stabm)
+jac = stabm::stabilityJaccard(features = sf_list, correction.for.chance = 'none')
+nog = stabm::stabilityNogueira(features = sf_list, p = length(task$feature_names))
+
+# Similarity of each pair of features using Pearson correlation
+sim.mat = abs(stats::cor(x = task$data(cols = task$feature_names), method = 'p'))
+zuck = stabm::stabilityZucknick(features = sf_list, sim.mat = sim.mat, 
+  threshold = 0.9, correction.for.chance = 'estimate', N = 100)
+
+tibble::tibble(jaccard = jac, nogueira = nog, zucknick = zuck)
+```
+
+From the above values we conclude that the stability of Cox-Lasso's feature selection is neither poor nor excellent but somewhere in between.
+
+# R session info {-}
+
+```{r}
+sessionInfo()
+```
+
+# References {-}
+
+
+
