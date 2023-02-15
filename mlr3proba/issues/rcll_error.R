@@ -1,7 +1,10 @@
-# https://github.com/mlr-org/mlr3proba/issues/311
+# https://github.com/mlr-org/mlr3proba/issues/311 (SOLVED NOW)
 library(mlr3verse)
 library(mlr3proba)
 library(tibble)
+
+lgr::get_logger('bbotk')$set_threshold('debug')
+lgr::get_logger('bbotk')$set_threshold('debug')
 
 set.seed(0)
 vet_obs = survival::veteran
@@ -10,9 +13,12 @@ vet_obs$status = 1 # all dead
 vet_cen = survival::veteran
 vet_cen$status = 0 # all censored
 
+# Define tasks for testing: original (some censored some not), all censored, all observed
+task_orig = as_task_surv(x = survival::veteran, time = 'time', event = 'status')
 task_cen = as_task_surv(x = vet_cen, time = 'time', event = 'status')
 task_obs = as_task_surv(x = vet_obs, time = 'time', event = 'status')
 poe = po('encode')
+task_orig = poe$train(list(task_orig))[[1L]]
 task_cen = poe$train(list(task_cen))[[1L]]
 task_obs = poe$train(list(task_obs))[[1L]]
 
@@ -35,9 +41,9 @@ dcal = msr('surv.dcalib', B = 10, chisq = FALSE)
 uno_c = msr('surv.cindex', weight_meth = 'G2')
 harrell_c = msr('surv.cindex')
 
-grid = benchmark_grid(tasks = list(task_obs), learners = learner,
+grid = benchmark_grid(tasks = list(task_orig), learners = learner,
   resamplings = rsmp('cv', folds = 6))
-bm = benchmark(design = grid, store_models = TRUE)
+bm = benchmark(design = grid, store_models = TRUE)fl
 dt = as.data.table(bm)
 
 data_list = list()
@@ -49,9 +55,10 @@ for(p in dt$prediction) {
   cen_num = sum(task$truth()[,2] == 0)
   train_set = dt$resampling[[index]]$train_set(dt$iteration[index])
 
-  print(p$score(msr('oob_error'), learner = dt$learner[[index]]))
+  #print(p$score(msr('oob_error'), learner = dt$learner[[index]]))
 
-  print(p$score(rcll))
+  #print(p$score(rcll))
+  rcll_score = p$score(rcll)
   ibrier_proper_score = p$score(ibrier_proper, task = task, train_set = train_set)
   ibrier_proper_test_score = p$score(ibrier_proper)
   ibrier_improper_score = p$score(ibrier_improper, task = task, train_set = train_set)
@@ -62,6 +69,7 @@ for(p in dt$prediction) {
   harc_score = p$score(harrell_c)
 
   data_list[[index]] = tibble(tsk_id = tsk_id, cen_num = cen_num,
+    rcll_score = rcll_score,
     ibrier_proper_score = ibrier_proper_score,
     ibrier_proper_test_score = ibrier_proper_test_score,
     ibrier_improper_score = ibrier_improper_score,
