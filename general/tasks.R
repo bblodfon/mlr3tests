@@ -87,6 +87,12 @@ task_penguins$head()
 
 task_penguins$data() %>% as_tibble()
 
+# Task feature renaming ----
+task_penguins
+task_penguins$rename(old = task_penguins$feature_names,
+                     new = paste0(task_penguins$feature_names, '1'))
+task_penguins
+
 # Task target mutation ----
 ?mlr_pipeops_targetmutate
 task = tsk("boston_housing")
