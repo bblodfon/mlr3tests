@@ -423,6 +423,7 @@ res[, .(surv.cindex.harrell, surv.cindex.uno, surv.uno_iauc, surv.uno_auc.10)] %
     theme_bw(base_size = 14) + 
     labs(title = 'Discrimination Measures') +
     theme(axis.text.x = element_blank())
+#ggsave(filename = 'mlr3_discrimination_msrs.png', dpi = 400, width = 7, height = 5)
 ```
 
 ```{r, fig.show='hold', out.width='50%'}
