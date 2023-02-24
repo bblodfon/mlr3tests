@@ -151,7 +151,7 @@ sbs$optimization_path(at_sbs$fselect_instance) # first result of each batch
 #' from learner, remove features, repeat until `n_features` are left
 
 #' `feature_fraction`/`feature_number`/`subset_sizes` control how many features to remove in each iteration (or keep) and are mutually exclusive
-#' See: https://github.com/mlr-org/mlr3fselect/blob/HEAD/R/FSelectorRFE.R#L119
+#' See: https://github.com/mlr-org/mlr3fselect/blob/HEAD/R/FSelectorRFE.R#L188
 #' `feature_number` comes first, `subset_sizes` second, and last `feature_fraction`
 
 ### Calculate #subsets ----
@@ -201,12 +201,18 @@ at = AutoFSelector$new(
   #fselector = fs('rfe', n_features = 2, feature_number = 1),
   #fselector = fs('rfe', subset_sizes = c(50, 40, 30, 20, 10, 2)),
   fselector = fs('rfe', feature_fraction = 0.65, n_features = 2),
-  store_models = TRUE, # this is needed!
+  store_models = FALSE, # after v0.10.0 this is not needed to be TRUE!
 )
 at$train(task)
 at$fselect_result
-as.data.table(at$archive)
+at$fselect_result$features[[1]]
+as.data.table(at$archive) # features column (new!)
+at$archive$best()
+at$fselect_instance$result_feature_set
 
+# only with `store_models = TRUE`
+at$archive$benchmark_result$resample_result(1)$learners[[1]]$model
+# model build on the best subset
 at$learner$model
 
 ## Genetic Algo Search ----
