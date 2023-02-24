@@ -7,9 +7,6 @@ taskv = as_task_surv(x = survival::veteran, id = 'veteran',
   time = 'time', event = 'status')
 poe = po('encode')
 taskv = poe$train(list(taskv))[[1L]]
-taskv
-
-taskv$col_roles$stratum = 'status'
 
 set.seed(42)
 rr = resample(task = taskv, learner = lrn('surv.coxph'),
@@ -20,7 +17,7 @@ rr$score(rcll) # error
 
 # RCLL code check
 dt = as.data.table(rr)
-prediction = dt$prediction[[2]]
+prediction = dt$prediction[[3]]
 prediction$score(rcll) # error
 
 out = rep(-99L, length(prediction$row_ids))
@@ -31,6 +28,6 @@ cens_times = truth[!event, 1]
 
 # HERE!!!!!
 !event # one TRUE only
-#prediction$distr[!event] # <= THIS FAILS, 1 column to subset edge case?
 prediction$distr[!event]$survival(cens_times) # single number
-diag(prediction$distr[!event]$survival(cens_times))
+diag(prediction$distr[!event]$survival(cens_times)) # diag returns empty matrix
+diag(as.matrix(prediction$distr[!event]$survival(cens_times))) # so I did this to make it work
