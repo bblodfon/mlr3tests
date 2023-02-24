@@ -108,9 +108,10 @@ ranger_lrn = lrn('surv.ranger', verbose = FALSE, splitrule = 'extratrees') # see
 ranger_lrn = lrn('surv.ranger', verbose = FALSE, splitrule = 'maxstat') # seems very fast
 
 set.seed(42)
-ranger_lrn = lrn('surv.ranger', verbose = FALSE, splitrule = 'logrank')
+ranger_lrn = lrn('surv.ranger', verbose = FALSE, splitrule = 'logrank', importance = 'permutation')
 ranger_lrn$train(task)
 ranger_lrn$model
+ranger_lrn$importance()
 
 # crank + distr
 pred2 = ranger_lrn$predict(task, row_ids = 1:5)
@@ -129,6 +130,11 @@ set.seed(42)
 train_indxs = sample(seq_len(task$nrow), 180) # 80% for training
 test_indxs  = setdiff(seq_len(task$nrow), train_indxs)
 intersect(train_indxs, test_indxs)
+
+## hyperparam notes (from survmob)
+#' `num.trees` = p_int(100, 1500)
+#' `mtry.ratio` = p_dbl(0.1, 0.9) # percentage of features to try at each node split
+#' `min.node.size` = p_int(1, 20) # min number of samples per node
 
 ranger_lrn = lrn('surv.ranger', verbose =  FALSE,
   num.trees = to_tune(100, 1500),
