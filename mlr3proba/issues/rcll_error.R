@@ -43,7 +43,7 @@ harrell_c = msr('surv.cindex')
 
 grid = benchmark_grid(tasks = list(task_orig), learners = learner,
   resamplings = rsmp('cv', folds = 6))
-bm = benchmark(design = grid, store_models = TRUE)fl
+bm = benchmark(design = grid, store_models = TRUE)
 dt = as.data.table(bm)
 
 data_list = list()
