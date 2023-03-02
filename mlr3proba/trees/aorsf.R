@@ -96,13 +96,13 @@ train_indxs = dsplit$train
 test_indxs  = dsplit$test
 
 orsf = lrn('surv.aorsf',
-  control_type = 'cph',
+  control_type = 'fast',
   #control_cph_iter_max = 1, # exactly the same as `fast`
   #control_net_alpha = 0,
   importance = 'none', # anova is magnitudes faster
   oobag_pred_type = 'surv',
-  attach_data = TRUE, # needs this for prediction!?
-  verbose_progress = TRUE,
+  attach_data = TRUE, # needs this for prediction!? definitely for importance!
+  #verbose_progress = TRUE,
   n_tree = 100
 )
 
