@@ -253,5 +253,3 @@ coxpo = po('learner', learner = cox)
 
 rr = resample(test_task, cox, resampling = rsmp('bootstrap'))
 rr$resampling
-
-

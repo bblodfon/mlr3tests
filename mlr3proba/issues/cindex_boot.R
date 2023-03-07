@@ -3,9 +3,9 @@ library(mlr3verse)
 library(mlr3proba)
 library(boot)
 
-# nice article
+# Nice Articles
 # https://elizavetalebedeva.com/bootstrapping-confidence-intervals-the-basics/
-
+# https://www.r-bloggers.com/2019/09/understanding-bootstrap-confidence-interval-output-from-the-r-boot-package/
 # from chapter 8 in the book L. Wasserman, All of Statistics (2004)
 # https://link.springer.com/content/pdf/10.1007/978-0-387-21736-9_8.pdf
 
