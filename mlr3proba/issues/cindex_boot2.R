@@ -1,3 +1,4 @@
+# Low-dim example that scales
 library(mlr3verse)
 library(mlr3proba)
 library(boot)
@@ -7,7 +8,7 @@ library(tictoc)
 task = tsk('rats')
 poe  = po('encode', method = 'treatment')
 task = poe$train(list(task))[[1]]
-test_task = task$clone(deep = TRUE)$filter(rows = 201:300)
+test_task = task$clone()$filter(rows = 201:300)
 
 # learner
 cox = lrn('surv.coxph')

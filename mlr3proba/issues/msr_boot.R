@@ -6,13 +6,16 @@ library(tictoc)
 
 # Task Lung ----
 task = tsk('lung')
-preprocess = po('encode') %>>% po('imputelearner', lrn('regr.rpart'))
+preprocess = po('encode', method = 'treatment') %>>% po('imputelearner', lrn('regr.rpart'))
 task = preprocess$train(task)[[1]]
 task$missings()
 task
 
 train_indx = 1:200
 test_indx  = 201:task$nrow
+
+test_task = task$clone()$filter(test_indx)
+test_task
 
 # Learners ----
 cox = lrn('surv.coxph')
@@ -174,23 +177,24 @@ set.seed(42)
 train_indx = sample(seq_len(task_mRNA$nrow), 100)
 test_indx  = setdiff(seq_len(task_mRNA$nrow), train_indx)
 
-xgb = lrn('surv.xgboost', nrounds = 300, eta = 0.01, max_depth = 2, nthread = 4,
-  booster = 'gbtree', objective = 'survival:cox')
-xgb$train(task_mRNA, train_indx)
-xgb$predict(task_mRNA, row_ids = test_indx)$score()
+rsf = lrn('surv.ranger', num.trees = 25, importance = 'none', num.threads = 1)
+rsf$train(task_mRNA, train_indx)
+rsf$model
+rsf$predict(task_mRNA, row_ids = test_indx)$score()
 
 # xgb$param_set$values$nthread = 1 # doesn't work
 
 tic()
-res = my_boot3(task_mRNA, train_indx, test_indx, learner = xgb, measure = harrell_c,
-  nrsmps = 1000)
+res = my_boot3(task_mRNA, train_indx, test_indx, learner = rsf, measure = harrell_c,
+  nrsmps = 10)
 toc()
 
+# more cores, more time!!! :(
 for(n in c(2,4,8,16)) {
   message('Nthreads: ', n)
   tic()
-  res = my_boot2(task = task_mRNA, train_indx, test_indx, learner = xgb,
-    measure = harrell_c, nrsmps = 1000, nthreads = n)
+  res = my_boot2(task = task_mRNA, train_indx, test_indx, learner = rsf,
+    measure = harrell_c, nrsmps = 10, nthreads = n)
   toc()
 }
 
@@ -229,3 +233,25 @@ extra_params_required = function(measure) {
 # Split to 4 x 250 and do these in parallel, though 1) data size and
 # 2) parallel prediction capacity of some learners create CPU overhead, leading
 # to very low or very high CPU usages
+
+# pipelines ----
+library(mlr3pipelines)
+?mlr_pipeops_subsample
+subsample = po('subsample', replace = TRUE)
+subsample
+
+head(subsample$train(list(test_task))[[1L]]$data())
+
+graph = pipeline_greplicate(subsample, n = 10)
+graph$plot()
+
+res = graph$train(test_task)
+!all.equal(res[[1]]$data(), res[[2]]$data())
+learner$predict(res[[1]])
+
+coxpo = po('learner', learner = cox)
+
+rr = resample(test_task, cox, resampling = rsmp('bootstrap'))
+rr$resampling
+
+

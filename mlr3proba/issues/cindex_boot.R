@@ -1,3 +1,4 @@
+# OLD TRIES
 library(mlr3verse)
 library(mlr3proba)
 library(boot)
@@ -139,6 +140,21 @@ res2 = get_bootCIs2(test_data = test_task$data(), learner = learner, nthreads = 
 res2 = get_bootCIs2(test_data = test_task$data(), learner = learner, nthreads = 4)
 
 # using mlr3 (???) ----
+library(mlr3pipelines)
+?mlr_pipeops_subsample
+subsample = po('subsample', param_vals = list(frac = 0.7, replace = TRUE))
+graph = pipeline_greplicate(subsample, n = 10)
+
+subsample$train(list(test_task))[[1L]]$data(rows = 1:5)
+
+res = graph$train(test_task)
+learner$predict(res[[1]])
+
+ens.boot = subsample %>>% learner
+g_rep = pipeline_greplicate(ens.boot, n = 10)
+g_rep$train(task)
+g_rep$predict(test_task)
+
 boot = po('subsample', param_vals = list(frac = 1, replace = TRUE))
 pred = po('predict') # task, learner, performance score
 # replicate n times
