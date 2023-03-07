@@ -4,8 +4,7 @@ library(mlr3extralearners)
 
 task_mRNA = readRDS(file = gzcon(url('https://github.com/bblodfon/paad-survival-bench/blob/main/data/task_mRNA_flt.rds?raw=True'))) # 1000 features
 
-#tasks = readRDS(file = '/home/john/repos/pancaim/paad-survival-bench/data/tasks.rds')
-#task_mRNA = tasks$mRNA
+#task_mRNA = readRDS(file = '/home/john/repos/pancaim/paad-survival-bench/data/tasks.rds')$mRNA
 
 dsplit = mlr3::partition(task_mRNA, ratio = 0.8)
 train_indxs = dsplit$train
