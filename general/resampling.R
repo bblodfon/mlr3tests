@@ -257,15 +257,33 @@ task2$strata
 
 # check if folds are stratified by status
 rsmp_holdout$instantiate(task2)
-get_cens_distr(rsmp_holdout, status) # YAY!
+cens_distr(rsmp_holdout, status) # YAY!
 
 rsmp_cv$instantiate(task2)
-get_cens_distr(rsmp_cv, status) # YAY!
+cens_distr(rsmp_cv, status) # YAY!
 
 rsmp_rcv = rsmp('repeated_cv', folds = 7, repeats = 4)
 rsmp_rcv$instantiate(task2)
 get_cens_distr(rsmp_rcv, status) # YAY!
 dplyr::bind_rows(cens_distr(rsmp_rcv, status), .id = 'rep') %>% as.data.frame()
+
+## mlr3::partition works ----
+part = partition(task, ratio = 0.8, stratify = F) # task is not stratified
+#' somehow with `stratify = T` it does some stratification, but I can't see
+#' it in the code: https://github.com/mlr-org/mlr3/blob/HEAD/R/partition.R
+part = partition(task2, ratio = 0.8, stratify = F) # task is pre-stratified
+
+part = partition(task, ratio = 0.8, stratify = T)
+# the above also works, but I don't know how the task is stratified
+
+inst = dplyr::bind_rows(
+  tibble(row_id = part$train, fold = 'train'),
+  tibble(row_id = part$test, fold = 'test')
+)
+inst %>%
+  add_column(status = status[inst$row_id]) %>%
+  group_by(fold) %>%
+  summarise(censored = sum(status == 0)/n())
 
 # Stratify by status + sex ----
 sex = task$data(cols = 'sex')[['sex']]
