@@ -63,7 +63,7 @@ alpha
 qq = boot:::norm.inter(t, alpha)
 qq
 # SOS => close to but not exactly the same with quantiles():
-quantile(x = sort(t), probs = alpha)
+quantile(x = t, probs = alpha)
 res$percent # same as qq
 
 # basic or empirical bootstrap
