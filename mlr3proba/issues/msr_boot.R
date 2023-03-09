@@ -228,28 +228,3 @@ extra_params_required = function(measure) {
 
   use_extra_params
 }
-
-# TODO ???
-# Split to 4 x 250 and do these in parallel, though 1) data size and
-# 2) parallel prediction capacity of some learners create CPU overhead, leading
-# to very low or very high CPU usages
-
-# pipelines ----
-library(mlr3pipelines)
-?mlr_pipeops_subsample
-subsample = po('subsample', replace = TRUE)
-subsample
-
-head(subsample$train(list(test_task))[[1L]]$data())
-
-graph = pipeline_greplicate(subsample, n = 10)
-graph$plot()
-
-res = graph$train(test_task)
-!all.equal(res[[1]]$data(), res[[2]]$data())
-learner$predict(res[[1]])
-
-coxpo = po('learner', learner = cox)
-
-rr = resample(test_task, cox, resampling = rsmp('bootstrap'))
-rr$resampling
