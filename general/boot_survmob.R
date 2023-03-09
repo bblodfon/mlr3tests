@@ -14,12 +14,12 @@ part = partition(task, ratio = 0.8)
 rsf = lrn('surv.ranger', verbose = FALSE, num.threads = 1)
 rsf$train(task, part$train)
 
-# for (test_workers in c(1,4,8,12,16)) {
-#   print(paste0('#Workers: ', test_workers))
-#   br = BootRes$new(test_measure_ids = c('uno_c', 'ibrier'), test_nrsmps = 1000,
-#     test_workers = test_workers)
-#   br$calculate(task = task, learner = rsf, part = part, quiet = FALSE)
-# }
+for (test_workers in c(1,4,8,12,16)) {
+  print(paste0('#Workers: ', test_workers))
+  br = BootRes$new(test_measure_ids = c('uno_c', 'ibrier'), test_nrsmps = 1000,
+    test_workers = test_workers)
+  br$calculate(task = task, learner = rsf, part = part, quiet = FALSE)
+}
 
 #' `4` cores on RSFs
 # [1] "#Workers: 1"
@@ -39,15 +39,15 @@ rsf$train(task, part$train)
 #' - Even with `1` worker, `4` cores are used!!!!!!!!
 
 # cox model
-# cox = lrn('surv.coxph')
-# cox$train(task, part$train)
-#
-# for (test_workers in c(1,4,8,12,16)) {
-#   print(paste0('#Workers: ', test_workers))
-#   br = BootRes$new(test_measure_ids = c('uno_c', 'ibrier'), test_nrsmps = 1000,
-#     test_workers = test_workers)
-#   br$calculate(task = task, learner = cox, part = part, quiet = FALSE)
-# }
+cox = lrn('surv.coxph')
+cox$train(task, part$train)
+
+for (test_workers in c(1,4,8,12,16)) {
+  print(paste0('#Workers: ', test_workers))
+  br = BootRes$new(test_measure_ids = c('uno_c', 'ibrier'), test_nrsmps = 1000,
+    test_workers = test_workers)
+  br$calculate(task = task, learner = cox, part = part, quiet = FALSE)
+}
 
 # [1] "#Workers: 1"
 # 39.729 sec elapsed
