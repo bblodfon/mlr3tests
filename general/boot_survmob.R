@@ -112,7 +112,7 @@ xgb = mlr3pipelines::ppl('distrcompositor',
   graph_learner = TRUE
 )
 xgb$id = 'XGBoostCox'
-bootest(cores = c(1,4), task = task_lung, learner = xgb, part = part_lung)
+bootest(cores = 1, task = task_lung, learner = xgb, part = part_lung)
 
 # Task mRNA (1) ----
 ## 1000 features
@@ -151,7 +151,7 @@ bootest(cores, task = task_mRNA, learner = rsf, part = part_mRNA)
 
 ## XGBoost ----
 print('XGBoost')
-bootest(cores = c(1,4), task = task_mRNA, learner = xgb, part = part_mRNA)
+bootest(cores = 1, task = task_mRNA, learner = xgb, part = part_mRNA)
 
 # Task mRNA (2) ----
 ## 10000 features
