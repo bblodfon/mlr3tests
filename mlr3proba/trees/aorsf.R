@@ -58,6 +58,7 @@ split_min_obs = 10 # minimum number of observations required in a node to consid
 # these are okay, more about the splitting process itself
 n_split =	5	# the number of cut-points assessed when splitting a node in decision trees (from linear predictors, see 2019 paper)
 n_retry = 3	# try up to 3 times to find a linear combination of predictors to split
+# Byron suggested to try and tune it, when there is not too much 'signal' in the data (https://github.com/ropensci/aorsf/issues/16)
 
 # TUNE separately or as one?
 #' Author's answer: "it certainly wouldn't hurt to think `control_type` as a tuning parameter. Looking at the individual datasets where we ran benchmarks in the arxiv paper, I do see some cases where one orsf method outperformed the others (although they were very similar overall)."
@@ -99,7 +100,7 @@ orsf = lrn('surv.aorsf',
   control_type = 'fast',
   #control_cph_iter_max = 1, # exactly the same as `fast`
   #control_net_alpha = 0,
-  importance = 'none', # anova is magnitudes faster
+  importance = 'anova', # anova is magnitudes faster
   oobag_pred_type = 'surv',
   attach_data = TRUE, # needs this for prediction!? definitely for importance!
   #verbose_progress = TRUE,
@@ -139,16 +140,17 @@ intersect(train, test)
 
 orsf = lrn('surv.aorsf',
   control_type = 'fast',
-  n_tree = to_tune(p_int(10, 150)),
-  mtry_ratio = to_tune(p_dbl(0.1, 0.9)),
-  leaf_min_obs = to_tune(p_int(3, 20)),
+  n_tree = to_tune(p_int(10, 150)), # can also not tune (set to 500+)
+  #mtry_ratio = to_tune(p_dbl(0.1, 0.9)), # don't tune with `fast`/`cph` control_type
+  leaf_min_obs = to_tune(p_int(3, 20)), # YES
+  # n_retry = to_tune(p_int(1, 100, logscale = TRUE)),
   importance = 'anova', # anova (fastest, default), permute (slowwww)
   oobag_pred_type = 'surv', # default
   attach_data = TRUE # needs this for prediction right now (definitely for importance)
 )
 
 dplyr::bind_rows(
-  generate_design_random(orsf$param_set$search_space(), 20)$transpose()
+  generate_design_random(orsf$param_set$search_space(), 10)$transpose()
 )
 
 orsf_at = AutoTuner$new(
@@ -164,7 +166,7 @@ orsf_at = AutoTuner$new(
 orsf_at$train(task, row_ids = train)
 
 # time?
-orsf_at$timings['train'] # 84
+orsf_at$timings['train'] # 81
 
 # check if chosen learner has the hps it should (OK!)
 orsf_at$learner
@@ -179,6 +181,7 @@ trained_learner = orsf_at$learner$clone(deep = TRUE)
 trained_learner$param_set$values = mlr3misc::insert_named(
   trained_learner$param_set$values, best_hpc)
 trained_learner$train(task, train)
+trained_learner$model$eval_oobag$stat_values # C-index
 1 - trained_learner$model$eval_oobag$stat_values # same as below
 trained_learner$oob_error()
 
@@ -188,5 +191,4 @@ p = orsf_at$predict(task, row_ids = test)
 p$score()
 
 autoplot(orsf_at$tuning_instance, type = 'performance')
-
-
+autoplot(orsf_at$tuning_instance, type = 'parameter')
