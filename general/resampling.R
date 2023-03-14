@@ -267,23 +267,55 @@ rsmp_rcv$instantiate(task2)
 get_cens_distr(rsmp_rcv, status) # YAY!
 dplyr::bind_rows(cens_distr(rsmp_rcv, status), .id = 'rep') %>% as.data.frame()
 
-## mlr3::partition works ----
-part = partition(task, ratio = 0.8, stratify = F) # task is not stratified
+## mlr3::partition test ----
+part = partition(task, ratio = 0.8, stratify = F) # task is not stratified (doesn't work)
 #' somehow with `stratify = T` it does some stratification, but I can't see
 #' it in the code: https://github.com/mlr-org/mlr3/blob/HEAD/R/partition.R
-part = partition(task2, ratio = 0.8, stratify = F) # task is pre-stratified
-
+part = partition(task2, ratio = 0.8, stratify = F) #' `task2` is pre-stratified
 part = partition(task, ratio = 0.8, stratify = T)
 # the above also works, but I don't know how the task is stratified
+#' WORKS here means it stratifies per `status` with `stratify = TRUE`
 
-inst = dplyr::bind_rows(
-  tibble(row_id = part$train, fold = 'train'),
-  tibble(row_id = part$test, fold = 'test')
-)
-inst %>%
-  add_column(status = status[inst$row_id]) %>%
-  group_by(fold) %>%
-  summarise(censored = sum(status == 0)/n())
+# tasks to test
+taskl = tsk('lung')
+taskv = as_task_surv(x = survival::veteran, id = 'veteran',
+  time = 'time', event = 'status')
+
+task = taskv$clone() # change task
+status = task$truth()[,2]
+ratio = 0.9 # play with this
+times = 100
+stratify = TRUE # play with this
+res = list()
+for (i in 1:times) {
+  part = partition(task, ratio = ratio, stratify = stratify)
+
+  res[[i]] = tibble::tibble(
+    train = unname(prop.table(table(task$truth(rows = part$train)[,2]))[1]),
+    test  = unname(prop.table(table(task$truth(rows = part$test )[,2]))[1])
+  )
+}
+#' censoring distribution stats (on train and test set)
+#' the test set is (usually) smaller so more liable to get 'unstratified' results
+#' `test.sd` will be larger than 0 for `stratified = FALSE` (proof)
+#' `test.mean` will be different than the 'original' cens. distr:
+
+# original censoring distr:
+unname(prop.table(table(status))[1])
+
+# resampling results:
+dplyr::bind_rows(res) %>%
+  summarise(across(everything(), list(mean = mean, sd = sd),
+    .names = "{.col}.{.fn}"))
+
+#' `time` doesn't seem to be stratified (can't really say), I checked with
+#' cutting into bins:
+prop.table(table(cut(x = sort(task$truth()[,1]),
+  breaks = c(0,35,112,1000))))
+prop.table(table(cut(x = sort(task$truth(rows = part$train)[,1]),
+  breaks = c(0,35,112,1000))))
+prop.table(table(cut(x = sort(task$truth(rows = part$test)[,1]),
+  breaks = c(0,35,112,1000))))
 
 # Stratify by status + sex ----
 sex = task$data(cols = 'sex')[['sex']]
