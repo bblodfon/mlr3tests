@@ -269,22 +269,22 @@ dplyr::bind_rows(cens_distr(rsmp_rcv, status), .id = 'rep') %>% as.data.frame()
 
 ## mlr3::partition test ----
 part = partition(task, ratio = 0.8, stratify = F) # task is not stratified (doesn't work)
-#' somehow with `stratify = T` it does some stratification, but I can't see
-#' it in the code: https://github.com/mlr-org/mlr3/blob/HEAD/R/partition.R
-part = partition(task2, ratio = 0.8, stratify = F) #' `task2` is pre-stratified
+#' With `stratify = T` it does stratification on status:
+#' From the `mlr3` code => https://github.com/mlr-org/mlr3/blob/HEAD/R/partition.R
+#' it get dispatched to => https://github.com/mlr-org/mlr3proba/blob/main/R/partition.R
+part = partition(task2, ratio = 0.8, stratify = F) #' `task2` is pre-stratified so it's okay
 part = partition(task, ratio = 0.8, stratify = T)
 # the above also works, but I don't know how the task is stratified
-#' WORKS here means it stratifies per `status` with `stratify = TRUE`
 
-# tasks to test
+#' Proof that it stratifies per `status` with `stratify = TRUE`
 taskl = tsk('lung')
 taskv = as_task_surv(x = survival::veteran, id = 'veteran',
   time = 'time', event = 'status')
 
-task = taskv$clone() # change task
+task = taskl$clone() # change task
 status = task$truth()[,2]
 ratio = 0.9 # play with this
-times = 100
+times = 500
 stratify = TRUE # play with this
 res = list()
 for (i in 1:times) {
@@ -308,8 +308,7 @@ dplyr::bind_rows(res) %>%
   summarise(across(everything(), list(mean = mean, sd = sd),
     .names = "{.col}.{.fn}"))
 
-#' `time` doesn't seem to be stratified (can't really say), I checked with
-#' cutting into bins:
+#' `time` doesn't seem to be stratified, I checked with cutting into bins:
 prop.table(table(cut(x = sort(task$truth()[,1]),
   breaks = c(0,35,112,1000))))
 prop.table(table(cut(x = sort(task$truth(rows = part$train)[,1]),
