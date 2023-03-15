@@ -1,5 +1,6 @@
 library(mlr3verse)
 library(mlr3proba)
+library(mlr3mbo)
 library(survival)
 library(ranger)
 library(tidyverse)
@@ -103,8 +104,8 @@ chf_tbl %>% ggplot(aes(x = times)) +
   theme_bw(base_size = 14) + theme(legend.position = 'top')
 
 # mlr3 examples ----
-ranger_lrn = lrn('surv.ranger', verbose = FALSE, splitrule = 'C', num.random.splits = 1) # slower
-ranger_lrn = lrn('surv.ranger', verbose = FALSE, splitrule = 'extratrees') # seems very fast
+ranger_lrn = lrn('surv.ranger', verbose = FALSE, splitrule = 'C',) # slower
+ranger_lrn = lrn('surv.ranger', verbose = FALSE, splitrule = 'extratrees', num.random.splits = 1) # seems very fast
 ranger_lrn = lrn('surv.ranger', verbose = FALSE, splitrule = 'maxstat') # seems very fast
 
 set.seed(42)
@@ -127,46 +128,79 @@ assertthat::are_equal(pred1$survival[1,], surv_1st, tol = 1e-10) # GREAT!
 
 # Tune ranger ----
 set.seed(42)
-train_indxs = sample(seq_len(task$nrow), 180) # 80% for training
-test_indxs  = setdiff(seq_len(task$nrow), train_indxs)
-intersect(train_indxs, test_indxs)
+part = partition(task, ratio = 0.8, stratify = TRUE)
+train_indxs = part$train
+test_indxs  = part$test
 
 ## hyperparam notes (from survmob)
 #' `num.trees` = p_int(100, 1500)
 #' `mtry.ratio` = p_dbl(0.1, 0.9) # percentage of features to try at each node split
 #' `min.node.size` = p_int(3, 20) # min number of samples per TERMINAL node
+#'  for `extratrees` splitrule, favor more randomized trees:
+#' `num.random.splits` = p_int(1, 100, logscale = TRUE)
+#' `minprop` = p_fct()
+
+minprop = p_fct()
 
 ranger_lrn = lrn('surv.ranger', verbose =  FALSE,
-  num.trees = to_tune(100, 1500),
+  num.trees = to_tune(1, 200),
   # num.features to choose from when splitting
-  mtry.ratio = to_tune(p_dbl(0.01, 1, logscale = TRUE)), # in presence of many features!
-  min.node.size = to_tune(p_int(1, 100, logscale = TRUE)),
-  splitrule = to_tune(c('logrank', 'maxstat', 'C')),
-  num.threads = 4)
+  mtry.ratio = to_tune(p_dbl(0.1, 0.9)), # in presence of many features!
+  # control tree size
+  min.node.size = to_tune(p_int(3, 20)),
+  #splitrule = 'logrank',
+  #splitrule = 'extratrees',
+  #num.random.splits = to_tune(p_int(1, 10)),
+  splitrule = 'maxstat',
+  alpha = to_tune(c(0.1, 0.3, 0.5, 0.7, 0.9)), # alpha = 0.5 (default)
+  minprop = to_tune(c(0, 0.1, 0.25, 0.4)), # minprop = 0.1 (default)
+  num.threads = 4
+)
 
 dplyr::bind_rows(
   generate_design_random(ranger_lrn$param_set$search_space(), 20)$transpose()
 )
 
-ranger_at = AutoTuner$new(
-  learner = ranger_lrn,
-  resampling = rsmp('cv', folds = 5),
-  measure = msr('surv.cindex'),
-  terminator = trm('evals', n_evals = 30), # 10 - 100
-  tuner = tnr('mbo')
+# or alternatively:
+ranger_lrn = lrn('surv.ranger', verbose =  FALSE,
+  splitrule = 'maxstat', num.threads = 4)
+
+search_space = paradox::ps(
+  num.trees = p_int(1, 200),
+  mtry.ratio = p_dbl(0.1, 0.9),
+  min.node.size = p_int(3, 20),
+  alpha = p_fct(c(0.1, 0.3, 0.5, 0.7, 0.9)),
+  minprop = p_fct(c(0, 0.1, 0.25, 0.4))
 )
-ranger_at$train(task, row_ids = train_indxs)
 
+at = AutoTuner$new(
+  learner = ranger_lrn,
+  resampling = rsmp('insample'),
+  measure = msr('oob_error'),
+  search_space = search_space,
+  terminator = trm('evals', n_evals = 30), # 10 - 100
+  # result_by_default (best in the archive), result_by_surrogate_design
+  # https://mlr3mbo.mlr-org.com/articles/mlr3mbo.html#putting-it-together
+  tuner = tnr('mbo', result_function = result_by_default),
+  store_models = TRUE # for `oob_error`
+)
+at$train(task, row_ids = train_indxs)
+
+at$archive
 # check if chosen learner has the hps it should (OK!)
-ranger_at$learner$model
-ranger_at$tuning_result
+min(as.data.table(at$archive)$oob_error)
+at$learner$model
+at$tuning_result$x_domain[[1]]
+at$archive$best()$x_domain[[1]]
+at$tuning_result
 
-ranger_at$tuner$surrogate$model
+at$tuner$result_function # check which result function is used =>
+# if `best()` somewhere then it's the best (e.g. lower error hpc) in the archive
+at$tuner$surrogate$model
 
-p = ranger_at$predict(task, row_ids = test_indxs)
+p = at$predict(task, row_ids = test_indxs)
 p
 p$score()
 
-autoplot(ranger_at$tuning_instance, type = 'parameter', trafo = TRUE)
-autoplot(ranger_at$tuning_instance, type = 'performance')
-
+autoplot(at$tuning_instance, type = 'parameter', trafo = TRUE)
+autoplot(at$tuning_instance, type = 'performance')
