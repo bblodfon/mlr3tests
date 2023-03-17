@@ -1,9 +1,10 @@
 #' `multicore` FASTER than `multisession`
 #' More cores with `multicore` => faster, `multisession` 'throttles' (`4` cores
 #' seemed to be the best in XPS 13)
-#' RSF parallelization didn't seem to affect speed-up no matter the config
-#' XGB parallelization problems: works only with 1 worker (sequential) +
-#' setting `nthread` > `1` (worked alright)
+#' - RSF parallelization => it's okay to set `test_workers` > 1 and
+#' `num.threads` > 1 in `ranger`
+#' - XGB parallelization => problems: works better with `test_workers` = 1 core
+#' (sequential) + setting `nthread` > 1 in `xgboost`
 library(mlr3verse)
 library(mlr3proba)
 library(mlr3extralearners)
