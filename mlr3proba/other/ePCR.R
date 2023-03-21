@@ -46,9 +46,9 @@ psp_medi = new("PSP",
     # Alpha sequence
     alphaseq = seq(from=0, to=1, length.out=5),
     # Using glmnet's default nlambda of 100
-    nlambda = 100,
+    nlambda = 10,
     # Running the nominal 10-fold cross-validation
-    folds = 10,
+    folds = 5,
     # x.expand slot is a function that would allow interaction terms
     # For the sake of the simplicity we will consider identity function
     x.expand = function(x) { as.matrix(x) }
@@ -63,8 +63,8 @@ psp_text = new("PSP",
   cvrepeat = 2,
   score = score.cindex,
   alphaseq = seq(from=0, to=1, length.out=5),
-  nlambda = 100,
-  folds = 10,
+  nlambda = 10,
+  folds = 5,
   x.expand = function(x) { as.matrix(x) }
 )
 psp_text
@@ -85,8 +85,6 @@ plot(psp_medi,
   main="C-index CV for psp_medi", bias=0.2
 )
 
-coef(psp_medi)
-
 # PEP ----
 pep_tyks = new("PEP",
   # The main input is the list of PSP objects
@@ -96,6 +94,7 @@ pep_tyks = new("PEP",
 # These PSPs were constructed using the example code above.
 pep_tyks
 
+pep_tyks@PSPs[[1]]@features
 pep_tyks@PSPs[[2]]@features
 
 # Predictions
