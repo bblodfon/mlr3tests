@@ -136,11 +136,11 @@ test_indxs  = part$test
 #' `num.trees` = p_int(100, 1500)
 #' `mtry.ratio` = p_dbl(0.1, 0.9) # percentage of features to try at each node split
 #' `min.node.size` = p_int(3, 20) # min number of samples per TERMINAL node
-#'  for `extratrees` splitrule, favor more randomized trees:
+#'  - `extratrees` splitrule, favor more randomized trees [Geurts2006]:
 #' `num.random.splits` = p_int(1, 100, logscale = TRUE)
-#' `minprop` = p_fct()
-
-minprop = p_fct()
+#' - `maxstat` splitrule, from paper [Wright2017a]
+#' `alpha` = p_fct(c(0.1, 0.3, 0.5, 0.7, 0.9))
+#' `minprop` = p_fct(c(0, 0.1, 0.25, 0.4))
 
 ranger_lrn = lrn('surv.ranger', verbose =  FALSE,
   num.trees = to_tune(1, 200),
