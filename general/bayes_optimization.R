@@ -23,7 +23,7 @@ instance = TuningInstanceSingleCrit$new(
   measure = msr("classif.ce"),
   terminator = trm("evals", n_evals= 50)
 )
-#default_surrogate(instance)
+default_surrogate(instance)
 
 tuner = tnr("mbo")
 tuner$optimize(instance)
