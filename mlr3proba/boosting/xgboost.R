@@ -175,6 +175,26 @@ lrn('surv.coxph')$
   predict(task, row_ids = test_indxs)$
   score() # ~0.74
 
+# survmob example ----
+#' Can't get importance from a graph learner:
+#' https://github.com/mlr-org/mlr3pipelines/issues/291
+library(survmob)
+
+lps = SurvLPS$new(ids = "surv_tree")
+tree = lps$lrns()[[1]]
+
+tree$train(task, row_ids = train_indxs)
+tree$graph_model$pipeops$SurvivalTree$learner_model$importance()
+# tree$importance() # doesn't work
+
+lps = SurvLPS$new(ids = "xgboost_cox")
+xgb = lps$lrns()[[1]]
+
+xgb$train(task, row_ids = train_indxs)
+xgb$model$XGBoostCox$model
+xgb$graph_model$pipeops$XGBoostCox$learner_model$importance()
+# xgb$importance() # doesn't work
+
 # Tune (Cox, 3 HPs) ----
 ncores = 4
 learner = lrn('surv.xgboost',
