@@ -15,7 +15,7 @@ bm = benchmark(design)
 measures = msrs(c("surv.intlogloss", "surv.cindex"))
 bm$aggregate(measures)
 res = bm$score(measures)
-res
+print(res)
 
 bm$score(measures = msr("surv.cindex")) %>%
   group_by(learner_id) %>%
