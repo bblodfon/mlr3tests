@@ -624,7 +624,7 @@ task_mRNA = readRDS(file = gzcon(url('https://github.com/bblodfon/paad-survival-
 task_mRNA
 part3 = partition(task_mRNA, ratio = 0.8)
 length(part3$train) # 116
-length(part3$test ) # 29
+length(part3$test) # 29
 
 # RSF
 rsf = lrn('surv.ranger', num.threads = 10)
@@ -633,12 +633,12 @@ rsf_pred = rsf$predict(task_mRNA, row_ids = part3$test)
 rsf_pred$score(measures)
 
 # BART
-bart = lrn('surv.bart', mc.cores = 15, sparse = TRUE, ntree = 200)
+bart = lrn('surv.bart', mc.cores = 15, sparse = FALSE, ntree = 50, seed = 42)
 bart$train(task_mRNA, row_ids = part3$train)
 bart_pred = bart$predict(task_mRNA, row_ids = part3$test)
 bart_pred$score(measures)
 
-imp = bart$importance(type = 'prob')
+imp = bart$model$varprob.mean # not sorted
 P = 1000
 plot(imp, # col = c(rep(2, 5), rep(1, P-5)),
   main=paste0('N:', length(part3$train), ', P:', P, ', thin:', 10),
