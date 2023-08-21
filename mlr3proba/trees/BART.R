@@ -592,10 +592,32 @@ stopifnot(length(bart_p2$surv.test.mean) == N * K) # for each patient, K times
 surv = matrix(nrow = N, ncol = K) # test patients X times
 
 for(i in 1:N) {
-  print(paste0('#obs: ', i))
+  #print(paste0('#obs: ', i))
   indxs = ((i-1)*K + 1):(i*K)
   surv[i,] = bart_p2$surv.test.mean[indxs]
 }
+
+# another way to do the same (vectorized)
+surv2 = matrix(bart_p2$surv.test.mean, nrow = N, ncol = K, byrow = TRUE)
+all(surv == surv2)
+
+rbenchmark::benchmark(
+  "for-loop" = {
+    surv = matrix(nrow = N, ncol = K);
+    for(i in 1:N) {
+      indxs = ((i-1)*K + 1):(i*K);
+      surv[i,] = bart_p2$surv.test.mean[indxs]
+  }},
+  "vectorized" = {
+    indices = matrix((0:(K-1)) + rep((0:(N-1)) * K, each = K) + 1, ncol = K, byrow = TRUE);
+    surv2 = matrix(data = bart_p2$surv.test.mean[indices], nrow = N, ncol = K, byrow = TRUE)
+  },
+  "vectorized2" = {
+    surv2 = matrix(bart_p2$surv.test.mean, nrow = N, ncol = K, byrow = TRUE)
+  },
+  replications = 1000,
+  columns = c("test", "replications", "elapsed", "relative", "user.self", "sys.self")
+)
 
 p3 = mlr3proba::.surv_return(times = bart_p2$times, surv = surv)
 names(p3) # a list with crank, surv matrix, ...
