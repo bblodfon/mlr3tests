@@ -32,6 +32,10 @@ measures = list(
   msr("classif.auc", id = "auc_test")
 )
 
+measures = list(
+  msr("classif.auc"), msr("classif.ce")
+)
+
 tab = bmr$aggregate(measures)
 print(tab)
 

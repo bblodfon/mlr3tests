@@ -1,27 +1,42 @@
-library("mlr3verse")
-library('mlr3extralearners')
+library(mlr3verse)
+library(mlr3extralearners)
+library(mlr3proba)
 
 #'###############################
 #' Only Uno's AUC was trustworthy
 #'###############################
 
+library(mlr3proba)
 task = tsk("rats")
 task$select(c("litter", "rx"))
-learner_lp = lrn("surv.glmnet")
+l = lrn("surv.coxph")
+l = lrn("surv.rpart")
+set.seed(1)
+part = partition(task)
+p = l$train(task, part$train)$predict(task, part$test)
+p$score(msr('surv.hung_auc'), task = task, train_set = part$train)
+p$score(msr('surv.song_auc'), task = task, train_set = part$train, learner = l)
+p$score(msr('surv.chambless_auc'), task = task, train_set = part$train, learner = l)
+
+#learner_lp = lrn("surv.glmnet")
 learner_lp = lrn("surv.coxph")
-learner_lp = lrn('surv.xgboost')
-prediction_lp = learner_lp$train(task, row_ids = 1:280)$predict(task, row_ids = 281:300)
+#learner_lp = lrn('surv.xgboost')
+l = lrn("surv.rpart")
+set.seed(1)
+part = partition(task)
+prediction_lp = learner_lp$train(task, part$train)$predict(task, part$test)
+p = l$train(task, part$train)$predict(task, part$test)
 
 mlr_measures$keys(pattern = '^surv')
 measures = msrs(c('surv.uno_auc', 'surv.chambless_auc', 'surv.hung_auc'))
 
 
-# issue with `times` => https://github.com/mlr-org/mlr3proba/issues/315
+# issue with `times` => https://github.com/mlr-org/mlr3proba/issues/315 (fixed now)
 uno_auc = msr('surv.uno_auc', integrated = FALSE)
-uno_auc$param_set$values$integrated # TRUE
+uno_auc$param_set$values$integrated # FALSE
 
 uno_auc = msr('surv.uno_auc', times = 100)
-uno_auc$param_set$values$times # NULL
+uno_auc$param_set$values$times # 100
 
 uno_auc$param_set$values$times = 100 # now it takes it
 uno_auc

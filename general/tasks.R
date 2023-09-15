@@ -119,10 +119,26 @@ head(res$data()[['medv']])
 library(mlr3)
 trafo_fun = function(x) {
   factor(ifelse(x$Species == "setosa", "setosa", "other"))
-  }
+}
 po = mlr3pipelines:::PipeOpUpdateTarget$new(param_vals = list(trafo = trafo_fun, new_target_name = "setosa"))
 po$train(list(tsk("iris")))
 po$predict(list(tsk("iris")))
+
+## doesn't work for 2 targets like in survival
+library(mlr3proba)
+task = tsk('lung')
+
+trgs = task$data(cols = task$target_names)
+trgs
+
+trafo_fun = function(x) {
+  x$time = ceiling(x$time / 7) # change time from days to weeks
+  x
+}
+trafo_fun(trgs) # works
+
+pout = mlr3pipelines:::PipeOpUpdateTarget$new(param_vals = list(trafo = trafo_fun))
+pout$train(list(task)) # doesn't work
 
 # Lung dataset (survival) ----
 lung = survival::lung
