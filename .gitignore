@@ -2,3 +2,7 @@
 .Rproj.user/
 mlr3proba/.vscode/
 mob.rds
+getopt
+os
+sys
+sysconfig
