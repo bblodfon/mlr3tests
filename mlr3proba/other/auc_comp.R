@@ -1,3 +1,5 @@
+# Time-dependent C-index in aorsf benchmark discussion:
+# https://github.com/bcjaeger/aorsf-bench/issues/6
 library(timeROC)
 library(riskRegression)
 library(survAUC)
