@@ -26,7 +26,7 @@ library(mlr3extralearners)
 library(mlr3pipelines)
 library(mlr3proba)
 library(distr6)
-library(BART)
+library(BART) # 2.9.4
 library(dplyr)
 library(tidyr)
 library(tibble)
