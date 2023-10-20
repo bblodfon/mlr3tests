@@ -181,7 +181,7 @@ at = AutoTuner$new(
   terminator = trm('evals', n_evals = 30), # 10 - 100
   # result_by_default (best in the archive), result_by_surrogate_design
   # https://mlr3mbo.mlr-org.com/articles/mlr3mbo.html#putting-it-together
-  tuner = tnr('mbo', result_function = result_by_default),
+  tuner = tnr('mbo'),
   store_models = TRUE # for `oob_error`
 )
 at$train(task, row_ids = train_indxs)
