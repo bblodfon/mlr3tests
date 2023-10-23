@@ -4,6 +4,7 @@ library(mlr3extralearners)
 library(dplyr)
 library(ggplot2)
 
+# Data ----
 # 1000 mRNA preprocessed features from TCGA PAAD study
 t = readRDS(file = gzcon(url('https://github.com/bblodfon/paad-survival-bench/blob/main/data/task_mRNA_flt.rds?raw=True')))
 d = t$data()
@@ -12,17 +13,29 @@ d$time = ceiling(d$time/30.44)
 task = mlr3proba::as_task_surv(d, time = 'time', event = 'status', id = 'mRNA')
 part = partition(task, ratio = 0.8)
 
+# Train + Test ----
 # learner = lrn("surv.bart", nskip = 250, ndpost = 100, keepevery = 50, mc.cores = 10)
 learner = lrn("surv.bart", nskip = 250, ndpost = 100, keepevery = 50,
                mc.cores = 10, sparse = TRUE, importance = "prob")
 learner$train(task, part$train)
+
+imp = learner$importance() # sorted
+P = 1000
+plot(imp, # col = c(rep(2, 5), rep(1, P-5)),
+  main=paste0('N:', length(part$train), ', P:', P, ', thin:', 50),
+  ylab='Selection Probability', #ylim=c(0, 0.3),
+  pch=1+45*(imp <= 1/P))
+lines(c(0, 1000), c(1/P, 1/P))
+
+# selected (Prob < 1/P) => 46, otherwise 1 (selected)
+print(table(1+45*(imp <= 1/P))) # 75 features selected
 
 p_test = learner$predict(task, part$test)
 p_test$distr
 measures = msrs(c("surv.cindex", "surv.rcll", "surv.graf"))
 p_test$score(measures)
 
-# MCMC convergence
+# MCMC convergence ----
 # predictions on the train set
 p_train = learner$predict(task, row_ids = part$train)
 

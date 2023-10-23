@@ -638,35 +638,3 @@ p2$score(measures)
 p2$distr[1:3]$survival(77) # cox
 p3$distr[1:3,"77"] # BART
 pred3$distr[1:3]$survival(77) # same as above, YAY
-
-## PAAD mRNA Example ----
-# data
-library(mlr3extralearners)
-task_mRNA = readRDS(file = gzcon(url('https://github.com/bblodfon/paad-survival-bench/blob/main/data/task_mRNA_flt.rds?raw=True'))) # 1000 features
-task_mRNA
-part3 = partition(task_mRNA, ratio = 0.8)
-length(part3$train) # 116
-length(part3$test) # 29
-
-# RSF
-rsf = lrn('surv.ranger', num.threads = 10)
-rsf$train(task_mRNA, row_ids = part3$train)
-rsf_pred = rsf$predict(task_mRNA, row_ids = part3$test)
-rsf_pred$score(measures)
-
-# BART
-bart = lrn('surv.bart', mc.cores = 15, sparse = FALSE, ntree = 50, seed = 42)
-bart$train(task_mRNA, row_ids = part3$train)
-bart_pred = bart$predict(task_mRNA, row_ids = part3$test)
-bart_pred$score(measures)
-
-imp = bart$model$varprob.mean # not sorted
-P = 1000
-plot(imp, # col = c(rep(2, 5), rep(1, P-5)),
-  main=paste0('N:', length(part3$train), ', P:', P, ', thin:', 10),
-  ylab='Selection Probability', #ylim=c(0, 0.3),
-  pch=1+45*(imp <= 1/P))
-lines(c(0, 1000), c(1/P, 1/P))
-
-# selected (Prob < 1/P) => 46, otherwise 1 (selected)
-print(table(1+45*(imp <= 1/P)))
