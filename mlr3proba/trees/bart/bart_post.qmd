@@ -88,7 +88,7 @@ p = learner$predict(task, row_ids = part$test)
 p
 ```
 
-See more details about `BART`'s parameters on the online documentation [TODO].
+See more details about `BART`'s parameters on the online [documentation](https://mlr3extralearners.mlr-org.com/reference/mlr_learners_surv.bart.html).
 
 ### distr
 
