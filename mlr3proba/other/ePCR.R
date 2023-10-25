@@ -1,6 +1,7 @@
 #' Code from: https://cran.r-project.org/web/packages/ePCR/vignettes/ePCR_guide.pdf
 library(ePCR)
 library(survival)
+library(skimr)
 
 # Data ----
 data(TYKSSIMU)
@@ -9,11 +10,13 @@ data(TYKSSIMU)
 head(xTEXTSIMU)
 dim(xTEXTSIMU) # 101 variables (clinical, demographic, lab values, medical history,
 # lesion sites, and previous treatments)
+skim(xTEXTSIMU)
 head(yTEXTSIMU) # survival
 
 # medication curated cohort
 head(xMEDISIMU)
 dim(xMEDISIMU) # 101 variables (same as above)
+skim(xMEDISIMU)
 class(yMEDISIMU$surv) # Surv object
 
 # all variables are the same
