@@ -1,7 +1,9 @@
 ---
 title: "Survival modeling in mlr3 using Bayesian Additive Regression Trees (BART)"
 author: "John Zobolas"
-format: html
+format:
+  html:
+    page-layout: full
 toc: true
 bibliography: "references.bib"
 ---
