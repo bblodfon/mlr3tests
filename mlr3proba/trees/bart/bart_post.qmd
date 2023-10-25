@@ -1,6 +1,9 @@
 ---
 title: "Survival modeling in mlr3 using Bayesian Additive Regression Trees (BART)"
-author: "John Zobolas"
+author:
+  - name: John Zobolas
+    orcid: 0000-0002-3609-8674
+    url: https://github.com/bblodfon
 format:
   html:
     page-layout: full
