@@ -79,11 +79,11 @@ summary(cbfit)
 
 ## get model coefficient
 coef(cbfit)
-cbfit$coefficients[101,] # does one more repetition? don't use since it doesn't include names of the variables!
+cbfit$coefficients[101,] # does one more repetition => first row is all zeros
+# cbfit$coefficients[cbfit$stepno + 1, ]
 
 ## ... with covariates 1 and 2 being mandatory
-cbfit.mand = CoxBoost::CoxBoost(time=obs.time, status=status, x=x, unpen.index=c(1,2),
-  stepno=100, penalty=100)
+cbfit.mand = CoxBoost::CoxBoost(time=obs.time, status=status, x=x, unpen.index=c(1,2), stepno=100, penalty=100)
 summary(cbfit.mand)
 coef(cbfit.mand)
 
@@ -103,9 +103,7 @@ task = poe$train(list(task))[[1]]
 task
 
 set.seed(42)
-train_indxs = sample(seq_len(task$nrow), 100)
-test_indxs  = setdiff(seq_len(task$nrow), train_indxs)
-intersect(train_indxs, test_indxs)
+part = partition(task, ratio = 0.8)
 
 # Native call ----
 data = task$data()[train_indxs]
@@ -125,7 +123,7 @@ fit2 = CoxBoost::CoxBoost(time = time, status = status, x = data,
 coef(fit2)
 
 ?predict.CoxBoost
-preds1 = predi3ct(fit, newdata = task$data(cols = task$feature_names)[test_indxs], type = 'lp')
+preds1 = predict(fit, newdata = task$data(cols = task$feature_names)[test_indxs], type = 'lp')
 preds1 # lps!
 
 preds2 = predict(fit2, newdata = task$data(cols = task$feature_names)[test_indxs], type = 'lp')
@@ -137,50 +135,59 @@ learner = lrn('surv.coxboost', standardize = TRUE, return.score = FALSE,
   stepno = 200, penalty = 100, criterion = 'pscore')
 learner
 
-learner$train(task, row_ids = train_indxs)
+learner$train(task, row_ids = part$train)
 learner$model
 
-preds = learner$predict(task, row_ids = test_indxs)
+preds = learner$predict(task, row_ids = part$test)
 preds # lp = crank
 all(preds$lp == preds1) # same, OK!!!
-preds$score() # 0.74
+preds$score()
+
+# get coefficients
+a = learner$model$coefficients[learner$model$stepno + 1, ] # first row is zeros
+b = unname(coef(learner$model, at.step = learner$model$stepno, scaled = FALSE)) # standardized = TRUE
+all(a == b)
 
 # mlr3proba example with unpenalized features
 learner = lrn('surv.coxboost', standardize = TRUE, return.score = FALSE,
   stepno = 200, penalty = 100, criterion = 'pscore', unpen.index = c(1,3,5))
 learner
 
-learner$train(task, row_ids = train_indxs)
+learner$train(task, row_ids = part$train)
 learner$model
 
 # CoxPH ----
 cox = lrn('surv.coxph')
-cox$train(task, row_ids = train_indxs)$
-    predict(task, row_ids = test_indxs)$
-    score() # 0.74 (baseline)
+cox$train(task, row_ids = part$train)$
+    predict(task, row_ids = part$test)$
+    score() # 0.64 (baseline)
 
 # Tune CoxBoost ----
-coxboost_learner = lrn('surv.coxboost', standardize = FALSE, # check if you need to change this
-  return.score = FALSE, # don't need this
-  stepno = to_tune(p_int(50, 500)), # up to 5000 or too much?
-  penalty = to_tune(p_int(10, 1000, logscale = TRUE)), # leave at default?
-  stepsize.factor = to_tune(p_dbl(1e-01, 10, logscale = TRUE)), # leave at default - 1?
-  criterion = to_tune(p_fct(c('pscore', 'hpscore'))) # penalized scores
+coxboost_learner = lrn('surv.coxboost', standardize = FALSE, return.score = FALSE)
+
+search_space = ps(
+  stepno = p_int(5, 100), # up to 5000 or too much?
+  penalty = p_int(10, 1000, logscale = TRUE), # leave at default?
+  stepsize.factor = p_dbl(1e-01, 10, logscale = TRUE), # leave at default - 1?
+  criterion = p_fct(c('pscore', 'hpscore')) # penalized scores
 )
 # `score` should be slower than `pscore` for p > 100 features - Benchmark!!!
 
 data.table::rbindlist(
-  generate_design_random(learner$param_set$search_space(), 5)$transpose()
+  paradox::generate_design_random(search_space, 10)$transpose()
 )
 
+library(future)
+plan(multisession, workers = 12)
 coxboost_at = AutoTuner$new(
   learner = coxboost_learner,
-  resampling = rsmp('cv', folds = 5),
+  resampling = rsmp('cv', folds = 3),
   measure = msr('surv.cindex'),
+  search_space = search_space,
   terminator = trm('evals', n_evals = 20), # 10 - 100
-  tuner = tnr('mbo')
+  tuner = tnr('random_search')
 )
-coxboost_at$train(task, row_ids = train_indxs)
+coxboost_at$train(task, row_ids = part$train)
 
 # check if chosen learner has the hps it should (OK!)
 coxboost_at$tuning_result
@@ -189,12 +196,11 @@ coxboost_at$learner$model
 
 coxboost_at$timings['train']
 
-p = coxboost_at$predict(task, row_ids = test_indxs)
+p = coxboost_at$predict(task, row_ids = part$test)
 p # crank, lp, distr
 p$score() # For this small dataset, performance is equal to CoxPH!!!
 
-# check surrogate
-coxboost_at$tuner$surrogate$model
+coxboost_at$tuner
 
 autoplot(coxboost_at$tuning_instance, type = 'parameter', trafo = TRUE)
 autoplot(coxboost_at$tuning_instance, type = 'performance')
