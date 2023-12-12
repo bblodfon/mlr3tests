@@ -54,6 +54,11 @@ surv_tree = lrn("surv.rpart")
 part = partition(task)
 
 # CoxPH
+cox = lrn("surv.coxph")
+cox$train(task, part$train)
+
+p = cox$predict(task, part$test)
+autoplot(p)
 
 # KM
 
@@ -74,4 +79,9 @@ m = msr("surv.dcalib")
 
 # putting it all together to a resample/benchmark
 
-
+# TCGA-BRCA dataset
+data = readRDS(file = gzcon(url('https://github.com/ocbe-uio/survomics/blob/main/data.rds?raw=True')))
+task = mlr3proba::as_task_surv(x = data,
+  time = 'time', event = 'status', id = 'BRCA-TCGA'
+)
+task
