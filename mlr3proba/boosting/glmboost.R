@@ -1,5 +1,6 @@
 # mboost: model-based/component-based boosting
 # practical tutorial/paper => vignette(package = "mboost", "mboost_tutorial")
+# glmboost default = gamboost with baselearner=bols = mboost with baselearner=bols
 library(mlr3verse)
 library(mlr3proba)
 library(mlr3extralearners)
