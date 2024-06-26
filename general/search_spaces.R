@@ -72,7 +72,9 @@ learner$param_set$values$lambda
 learner$param_set$values$lambda = to_tune(0.001, 0.3, logscale = TRUE)
 
 # works!!!
-learner$param_set$values$lambda = to_tune(p_dbl(0.001, 0.3, logscale = TRUE))
+learner$param_set$values$lambda = to_tune(p_dbl(2^-10, 2^10, logscale = TRUE)) # same as below
+learner$param_set$values$lambda = to_tune(p_dbl(-10, 10, trafo = function(x) 2^x))
+learner$param_set$values$lambda = to_tune(p_dbl(0.001, 0.3, logscale = TRUE)) # same as below
 learner$param_set$values$lambda = to_tune(p_dbl(log(0.001), log(0.3), trafo = exp))
 
 # untransformed
