@@ -62,7 +62,7 @@ all(ph.karno1 == ph.karno2)
 
 tend1 = task_classif$data(cols = "tend")[[1]]
 tend2 = pre$tx.train[, "t"]
-all(times1 == times2)
+all(tend1 == tend2)
 
 # make x_test with fake (time,status) as these are not used
 x_test = cbind(as.data.frame(x.test), times = 1, status = 1)
