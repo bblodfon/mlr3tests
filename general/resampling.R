@@ -151,7 +151,7 @@ res
 # SOS: FIRST NOT STRATIFIED:
 task_gc = tsk("german_credit")
 cv3 = rsmp('cv', folds = 8)
-cv3$instantiate(task)
+cv3$instantiate(task_gc)
 
 dt = merge(cv3$instance, task_gc$data()[, row_id := .I], by = "row_id")
 # per CV-fold ratio "bad:good" credit risk
@@ -161,7 +161,7 @@ dt[, .(class_ratio = sum(credit_risk == "bad") / sum(credit_risk == "good"))]
 
 # NOW: STRATIFY
 # SOS => stratum has to be a feature or target variable that is DISCRETE
-task_gc$col_roles$stratum = "credit_risk"
+task_gc$set_col_roles(cols = "credit_risk", add_to = "stratum")
 task_gc
 cv4 = rsmp('cv', folds = 8)
 cv4$instantiate(task_gc)
