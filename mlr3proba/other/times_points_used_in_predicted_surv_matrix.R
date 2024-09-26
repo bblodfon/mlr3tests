@@ -55,6 +55,7 @@ res = lapply(lrn_ids, function(id) {
     learner$param_set$set_values(.values = list(num.threads = 14))
   }
 
+  set.seed(42)
   learner$train(task, part$train)
   p = learner$predict(task, part$test)
   times = as.numeric(colnames(p$data$distr))
@@ -88,3 +89,16 @@ names(which_times) = lrn_ids
 
 # Results: which time points are used by each learner in the predicted survival matrix?
 which_times
+
+# check pipelines distr composition usage
+# add xgboost.aft + distr composition (uses all train times from "kaplan")
+xgb_aft = lrn("surv.xgboost.aft")
+xgb_aft = ppl("distrcompositor", learner = lrn("surv.xgboost.aft"),
+              form = "aft", estimator = "kaplan", overwrite = TRUE,
+              graph_learner = TRUE)
+xgb_aft$train(task, part$train)
+p = xgb_aft$predict(task, part$test)
+p
+aft_times = as.numeric(colnames(p$data$distr))
+all(aft_times == train_times)
+
