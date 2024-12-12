@@ -1,9 +1,9 @@
 library(mlr3proba)
 library(ggplot2)
 
-gen = tgen("coxed", T = 1000, type = "none", censor = 0.2, xvars = 6,
+gen = tgen("coxed", T = 365, type = "none", censor = 0.2, xvars = 6,
            mu = 1, sd = 2, censor.cond = FALSE)
-n = 2000
+n = 100
 task = gen$generate(n = n)
 autoplot(task)
 
@@ -28,7 +28,7 @@ if (length(indx) == 0L) {
   t_max = surv$time[indx[1L]]
 }
 
-t_max = max(times) - 1
+# t_max = max(times) - 1
 print(t_max)
 
 # filter observations
@@ -40,7 +40,10 @@ plot(cens2)
 # Combine the data for ggplot2
 cens_df = data.frame(time = cens$time, surv = cens$surv, group = "cens")
 cens2_df = data.frame(time = cens2$time, surv = cens2$surv, group = "cens2")
-combined_df = rbind(cens_df, cens2_df)
+# what we do for RISBS
+lgl_indx = cens$time <= t_max
+cens3_df = data.frame(time = cens$time[lgl_indx], surv = cens$surv[lgl_indx], group = "cens3")
+combined_df = rbind(cens_df, cens2_df, cens3_df)
 
 # Plot G(t)s
 ggplot(combined_df, aes(x = time, y = surv, color = group)) +
@@ -49,9 +52,9 @@ ggplot(combined_df, aes(x = time, y = surv, color = group)) +
        x = "Time", y = "S(t)") +
   theme_minimal() +
   scale_color_manual(
-    values = c("blue", "red"),
-    #labels = c("All obs", "Remove obs (80% cens)")
-    labels = c("All obs", "Remove last time point")
+    values = c("blue", "red", "green"),
+    labels = c("All obs", "Remove obs (80% cens)", "All obs + filter at t_max")
+    #labels = c("All obs", "Remove last time point")
   ) +
   theme(
     legend.position = "top",               # Move legend to the top
