@@ -1,0 +1,72 @@
+---
+title: "R Notebook"
+output: html_notebook
+editor_options: 
+  chunk_output_type: inline
+---
+
+# Libraries
+
+```{r}
+library(mlr3)
+library(mlr3extralearners)
+library(mlr3pipelines)
+library(survival)
+library(pammtools)
+```
+
+
+# Special formula objects for gam learners and passing offset
+
+## Data PEM format
+```{r}
+data('tumor', package = 'pammtools')
+cut = seq(0, max(tumor$days), length.out = 100) |> round()
+exp_offset = diff(cut)
+# create the transformed data
+PEM_data = pammtools::as_ped(data = tumor, Surv(days, status)~., cut = cut)
+head(PEM_data)
+```
+
+## GAM Learner mlr3
+
+
+```{r}
+# Special formula objects like s() work
+lrn_gam = lrn('regr.gam',
+              family = 'poisson',
+              formula = ped_status ~ s(tend))
+
+tumor_task_regr= TaskRegr$new(id ='tumor_no_pipeline', backend = PEM_data, target = 'ped_status')
+
+gam_no_offset = lrn_gam$train(tumor_task_regr)
+
+summary(gam_no_offset$model)
+```
+
+
+```{r}
+# setting offset = offset will not work
+lrn_gam = lrn('regr.gam',
+              family = 'poisson',
+              formula = ped_status ~ s(tend),
+              offset = PEM_data$offset)
+tumor_task_regr= TaskRegr$new(id ='tumor_no_pipeline', backend = PEM_data, target = 'ped_status')
+
+lrn_gam$train(tumor_task_regr)
+summary(lrn_gam$model)
+```
+
+
+```{r}
+# setting offset via the offset() wrapper in the formula argument 
+lrn_gam = lrn('regr.gam',
+              family = 'poisson',
+              formula = ped_status ~ s(tend) + offset(offset))
+tumor_task_regr= TaskRegr$new(id ='tumor_no_pipeline', backend = PEM_data, target = 'ped_status')
+
+# runs through, but offset will be included during estimation and at prediction time - predicting not the hazard but probability of censoring given time
+lrn_gam$train(tumor_task_regr)
+summary(gam_offset$model)
+```
+
