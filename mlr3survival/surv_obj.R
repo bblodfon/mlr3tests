@@ -13,6 +13,8 @@ res = survival::Surv(
   type = "interval"
 )
 res
+attributes(res)$type # interval
+
 # + => right-censored, no symbol => event, - => left-censored, [start, end) => interval
 res[which(event == 2)] # left-censored
 res[which(event == 1)] # events
@@ -35,7 +37,7 @@ res2 = survival::Surv(
   type = "interval2"
 )
 res2
-attributes(res2)
+attributes(res2)$type # interval
 dimnames(res2)[[2]]
 
 # Multi-state data + interval censoring
