@@ -34,6 +34,17 @@ model2 = prioritylasso::cvm_prioritylasso(
   nfolds = 5
 )
 model2$best.blocks.indices # get best indices
+model2$best.model # YAY - USE BEST MODEL WHICH HAS BEEN ALREADY FITTED, PREDICTION WORKS
+predict(model2$best.model)
+
+## Adaptive STEP
+Otherwise, you the two-step fast procedure to find the priority of blocks - detailed here:
+# https://github.com/YingxiaLi2023/multi-omics-data/blob/main/Functions/Functions_AnalysisCluster_2.R#L595
+and here:
+# https://github.com/BoevaLab/Multi-omics-noise-resistance/blob/95608421728e0a166bd889990b8b354c66ef557e/noise_resistance/R/utils/utils.R#L81
+
+
+
 
 model = prioritylasso::prioritylasso(
   X = x, Y = y,
