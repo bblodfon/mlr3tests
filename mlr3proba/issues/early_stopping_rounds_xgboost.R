@@ -1,4 +1,5 @@
 # https://stackoverflow.com/questions/73527213/setting-early-stopping-rounds-in-xgboost-learner-using-mlr3
+# Setting up the early-stopping nrounds as a PERCENTAGE of the nrounds while tuning nrounds!
 library(mlr3verse)
 library(tidyverse)
 library(mlr3proba)

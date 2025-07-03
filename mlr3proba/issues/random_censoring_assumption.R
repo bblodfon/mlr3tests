@@ -1,3 +1,4 @@
+# checking for independent censoring: add status as variable and see if its significant for predicting outcome? paper?
 library(mlr3verse)
 library(mlr3proba)
 
