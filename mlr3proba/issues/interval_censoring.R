@@ -1,4 +1,4 @@
-# This script proves that we can't use a TaskSurv with itnerval censoring on a Learner
+# This script proves that we can't use a TaskSurv with interval censoring on a Learner
 # that doesn't support this, so we need Learner-Task properties!!!
 library(icenReg)
 library(survival)
@@ -6,7 +6,7 @@ library(mlr3extralearners)
 
 data("miceData")
 
-task = as_task_surv(x = miceData, time = "l", time2 = "u", type = "interval2")
+task = as_task_surv(x = miceData, time = "l", time2 = "u", type = "interval")
 lrn("surv.coxph")$train(task) # doesn't work
 lrn("surv.rpart")$train(task) # failed, time > 0
 l = lrn("surv.kaplan")
@@ -14,7 +14,7 @@ l$train(task)
 
 mice2 = miceData
 mice2$l = mice2$l + 1
-task = as_task_surv(x = mice2, time = "l", time2 = "u", type = "interval2")
+task = as_task_surv(x = mice2, time = "l", time2 = "u", type = "interval")
 lrn("surv.rpart")$train(task) # failed
 
 lrn("surv.rpart")$train(task2)
