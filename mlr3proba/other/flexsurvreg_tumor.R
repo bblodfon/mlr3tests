@@ -62,18 +62,22 @@ p4 = predict(mod4, newdata = test_set, type = "lp")
 # same ranks for mod2 and mod3:
 cor(p2$.pred_link, p3$.pred_link, method = "kendall")
 
+# mod
 concordance(
   Surv(test_set$days, test_set$status) ~ p1$.pred_link
 )$concordance
 
+# mod2
 concordance(
   Surv(test_set$days, test_set$status) ~ p2$.pred_link, reverse = TRUE
 )$concordance
 
+# mod3
 concordance(
   Surv(test_set$days, test_set$status) ~ p3$.pred_link, reverse = TRUE
 )$concordance
 
+# mod4
 concordance(
   Surv(test_set$days, test_set$status) ~ p4$.pred_link, reverse = TRUE
 )$concordance
@@ -85,7 +89,9 @@ library(mlr3proba)
 train_task = as_task_surv(train_set, time = "days", event = "status")
 test_task = as_task_surv(test_set, time = "days", event = "status")
 
-learner = lrn("surv.flexible", k = 0, anc = list(gamma1 = ~ age), formula = Surv(days, status) ~ age)
+learner = lrn("surv.flexible", k = 0, anc = list(gamma1 = ~ age),
+              formula = Surv(days, status) ~ age)
+# same as mod3
 learner = lrn("surv.flexible", k = 0, anc = list(gamma1 = ~ complications),
               formula = Surv(days, status) ~ age + sex + transfusion + metastases + resection + complications)
 
@@ -93,6 +99,7 @@ learner$train(train_task)
 learner$model
 
 coef(learner$model) - coef(mod2)
+coef(mod2) - coef(mod3)
 coef(learner$model) - coef(mod3) # same as mod3
 
 p = learner$predict(test_task)
