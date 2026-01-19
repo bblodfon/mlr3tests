@@ -1,11 +1,16 @@
 library(mlr3proba)
 library(mlr3extralearners)
+library(mlr3pipelines)
 library(progressr)
+
+poe = po("encode", method = "treatment")
 
 # get all survival tasks in mlr3proba
 keys = as.data.table(mlr_tasks)[task_type == "surv"][["key"]]
 tasks = lapply(keys, function(key) {
-  tsk(key)
+  # tsk(key)
+  # if learners don't support factor encoding
+  poe$train(list(tsk(key)))[[1L]]
 })
 
 # logging
