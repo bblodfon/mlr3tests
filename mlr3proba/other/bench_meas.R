@@ -24,6 +24,8 @@ handlers("progress")
 # parallelization
 future::plan("multicore", workers = 15)
 
+tasks[[1L]] = NULL # remove actg task if encoded, as some columns are very singular
+
 # conduct benchmark
 set.seed(42)
 bm_grid = benchmark_grid(
